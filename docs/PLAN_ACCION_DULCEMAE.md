@@ -53,8 +53,18 @@ Campos que debe pedir el checkout:
 
 Regla de delivery:
 
-- Si el cliente elige delivery, sumar $3.500 al total como costo de bencina.
+- Si el cliente elige delivery, calcular un costo sugerido.
+- Partir con una tarifa simple: $3.500 base para sectores cercanos.
+- En una segunda version, cobrar por distancia o zona.
 - Mostrarlo separado: subtotal productos, delivery, total final.
+
+Delivery recomendado por etapas:
+
+- Version 1: retiro o delivery con costo fijo editable.
+- Version 2: zonas predefinidas, por ejemplo Alerce, centro, Mirasol, Puerto Montt.
+- Version 3: calculo por distancia con mapa/API.
+
+Para una persona que trabaja sola, la mejor primera version es costo sugerido + boton para editarlo. Asi el sistema ayuda, pero no obliga.
 
 Mensaje WhatsApp recomendado:
 
@@ -167,6 +177,8 @@ Vistas del admin:
 - Hoy: pedidos de hoy y proximos.
 - Pedidos: lista por estado.
 - Nuevo pedido manual: para pedidos que entran directo por WhatsApp.
+- Clientes: personas frecuentes, telefonos, direccion habitual y notas.
+- Cuentas por cobrar: clientes que deben, abonos y total pendiente.
 - Productos: editar precio, foto, disponibilidad.
 - Costos: calcular costo de producto.
 - Insumos: registrar compras.
@@ -186,6 +198,15 @@ Por que mejora el negocio:
 - Tu mama no depende de memoria.
 - Puede saber que hacer hoy.
 - Puede avisar estado al cliente con menos esfuerzo.
+- Puede ver rapido quien debe y cuanto debe.
+- Puede sumar pedidos frecuentes sin calcular a mano.
+
+Regla mobile-first:
+
+- El admin debe estar pensado primero para celular.
+- Cada pantalla debe responder una sola pregunta: que hago ahora, quien pidio, cuanto falta, quien debe.
+- Los botones principales deben ser grandes: confirmar, preparar, listo, entregado, copiar mensaje, abrir WhatsApp.
+- Las tablas grandes deben convertirse en tarjetas simples en celular.
 
 ## Fase 5 - Calculadora de costos
 
@@ -237,10 +258,14 @@ Graficos utiles:
 - Ventas por semana.
 - Ventas por mes.
 - Pedidos por estado.
+- Total por cobrar.
+- Clientes con deuda.
+- Abonos recibidos.
 - Productos mas pedidos.
 - Total vendido.
 - Utilidad estimada.
 - Delivery acumulado.
+- Delivery por zona/distancia.
 - Pedidos por metodo de pago.
 - Dias con mas pedidos.
 - Promedio de ticket.
