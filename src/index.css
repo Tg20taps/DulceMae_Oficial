@@ -1,0 +1,204 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.dm-pattern-veil {
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.95) 0%,
+    rgba(0, 0, 0, 0.72) 14%,
+    rgba(0, 0, 0, 0.20) 35%,
+    rgba(0, 0, 0, 0.12) 50%,
+    rgba(0, 0, 0, 0.20) 65%,
+    rgba(0, 0, 0, 0.72) 86%,
+    rgba(0, 0, 0, 0.95) 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.95) 0%,
+    rgba(0, 0, 0, 0.72) 14%,
+    rgba(0, 0, 0, 0.20) 35%,
+    rgba(0, 0, 0, 0.12) 50%,
+    rgba(0, 0, 0, 0.20) 65%,
+    rgba(0, 0, 0, 0.72) 86%,
+    rgba(0, 0, 0, 0.95) 100%
+  );
+}
+
+.dm-pastry-pattern {
+  opacity: 0.34;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M44 58c-7-9-22-5-22 8 0 15 22 25 22 25s22-10 22-25c0-13-15-17-22-8z'/%3E%3Cpath d='M152 42h38l-5 42h-28z'/%3E%3Cpath d='M158 42c2-11 10-16 17-8 8-9 19-1 15 8'/%3E%3Cpath d='M161 62h22'/%3E%3Cpath d='M73 161c0-16 14-29 31-29s31 13 31 29'/%3E%3Cpath d='M70 161h68l-7 35H77z'/%3E%3Cpath d='M88 132c4-14 24-14 28 0'/%3E%3Cpath d='M37 189l10-10 10 10-10 10z'/%3E%3Cpath d='M194 151l5 12 12 5-12 5-5 12-5-12-12-5 12-5z'/%3E%3Cpath d='M170 210c11-7 20-16 26-27'/%3E%3Cpath d='M184 215c6-12 9-24 9-37'/%3E%3C/g%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M44 58c-7-9-22-5-22 8 0 15 22 25 22 25s22-10 22-25c0-13-15-17-22-8z'/%3E%3Cpath d='M152 42h38l-5 42h-28z'/%3E%3Cpath d='M158 42c2-11 10-16 17-8 8-9 19-1 15 8'/%3E%3Cpath d='M161 62h22'/%3E%3Cpath d='M73 161c0-16 14-29 31-29s31 13 31 29'/%3E%3Cpath d='M70 161h68l-7 35H77z'/%3E%3Cpath d='M88 132c4-14 24-14 28 0'/%3E%3Cpath d='M37 189l10-10 10 10-10 10z'/%3E%3Cpath d='M194 151l5 12 12 5-12 5-5 12-5-12-12-5 12-5z'/%3E%3Cpath d='M170 210c11-7 20-16 26-27'/%3E%3Cpath d='M184 215c6-12 9-24 9-37'/%3E%3C/g%3E%3C/svg%3E");
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 240px 240px;
+  mask-size: 240px 240px;
+  transition: background-color 0.85s ease, opacity 0.85s ease;
+}
+
+/* ══════════════════════════════════════════════════
+   GPU PERFORMANCE — compositor layer hints globales
+   Aplicados a elementos que Framer Motion anima:
+   el navegador los promueve a su propia capa GPU
+   antes de que empiece la animación → zero jank.
+══════════════════════════════════════════════════ */
+.dm-gpu {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Reduce backdrop-filter cost en móvil: solo activo
+   si el dispositivo supera 60fps (media hint) */
+@media (prefers-reduced-motion: reduce) {
+  .dm-blur { backdrop-filter: none !important; }
+}
+
+/* ── Scroll sin interrupciones ──────────────────── */
+html {
+  scroll-behavior: smooth;
+  /* Promueve el root al compositor — reduce paint */
+  -webkit-overflow-scrolling: touch;
+  overflow-y: scroll;         /* evita reflow por scrollbar apareciendo */
+}
+
+@layer base {
+  body {
+    /*
+      Sin bg sólido aquí — el BackgroundCanvas de App.jsx maneja
+      todo el color de fondo globalmente con position:fixed.
+      Este transparent evita que body tape al canvas.
+    */
+    background-color: transparent;
+    color: #3f2128;
+    cursor: auto;
+    font-family: 'Montserrat', sans-serif;
+  }
+
+  /* El <html> tampoco debe tener fondo que tape los blobs */
+  html {
+    background-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  a,
+  button,
+  [role="button"],
+  label[for],
+  select,
+  [onClick] {
+    cursor: pointer;
+  }
+
+  /* ── Scrollbar premium DulceMae ──────────────────────────── */
+  ::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #fff0f7;
+    border-left: 1px solid rgba(249, 168, 212, 0.18);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #f9a8d4, #be185d);
+    border-radius: 99px;
+    border: 3px solid #fff0f7;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #f472b6, #9f1239);
+  }
+}
+
+@layer utilities {
+
+  /* ── Gradiente de texto rosa ───────────────────────────── */
+  .text-gradient-pink {
+    @apply text-transparent bg-clip-text bg-gradient-to-r from-[#be185d] to-[#f472b6];
+  }
+
+  /*
+    .glass-card — Glassmorphism premium para cards internas.
+    bg-white/60 + backdrop-blur = vidrio helado sobre los blobs.
+    Las secciones que usen esto se verán "flotando" sobre el fondo.
+  */
+  .glass-card {
+    @apply bg-white/60 backdrop-blur-2xl border border-white/70 shadow-2xl;
+  }
+
+  /*
+    .glass-crisp — Borde "crujiente" para tarjetas sobre fondo pastel.
+    border: 1px solid rgba(255,255,255,0.40) → línea de luz que
+    separa la card del fondo difuminado sin perder el glassmorphism.
+    Úsalo en ProductCard, StatCard, LocationMap, etc.
+  */
+  .glass-crisp {
+    border: 1px solid rgba(255, 255, 255, 0.40);
+    box-shadow:
+      0 2px 16px rgba(190, 24, 93, 0.07),
+      0 1px 0 rgba(255, 255, 255, 0.60) inset,
+      0 -1px 0 rgba(190, 24, 93, 0.04) inset;
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+  }
+
+  /*
+    .bg-dots — Pattern de puntitos para secciones que lo requieran.
+    Sin bg sólido detrás para que los blobs sigan visibles.
+  */
+  .bg-dots {
+    background-image: radial-gradient(circle, rgba(249, 168, 212, 0.35) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  /* ── Delays de animación (para elementos que usen CSS anim) */
+  .animation-delay-1000 { animation-delay: 1s; }
+  .animation-delay-2000 { animation-delay: 2s; }
+  .animation-delay-3000 { animation-delay: 3s; }
+  .animation-delay-4000 { animation-delay: 4s; }
+  .animation-delay-5000 { animation-delay: 5s; }
+  .animation-delay-6000 { animation-delay: 6s; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   .btn-primary — Botón principal de DulceMae
+   En CSS puro porque Tailwind no soporta rgba() con comas
+   dentro de @apply. Gradient + glow en 3 capas.
+══════════════════════════════════════════════════════════════ */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 2.25rem;
+  background: linear-gradient(135deg, #be185d 0%, #e11d72 100%);
+  color: #ffffff;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow:
+    0 0 20px rgba(190, 24, 93, 0.40),
+    0 4px 16px rgba(190, 24, 93, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transform: translateY(0) scale(1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #9f1239 0%, #be185d 100%);
+  box-shadow:
+    0 0 36px rgba(190, 24, 93, 0.60),
+    0 8px 28px rgba(190, 24, 93, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transform: translateY(-3px) scale(1.015);
+}
+
+.btn-primary:active {
+  transform: scale(0.96) translateY(0);
+  box-shadow:
+    0 0 14px rgba(190, 24, 93, 0.45),
+    inset 0 2px 4px rgba(0, 0, 0, 0.12);
+}
