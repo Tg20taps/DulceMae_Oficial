@@ -137,7 +137,7 @@ function CarouselCard({ slide, isActive, onActivate, onProductClick }) {
       }}
       whileTap={{ scale: isActive ? 0.97 : 0.88 }}
       transition={SPRING}
-      className="relative w-full h-full rounded-[2rem] overflow-hidden select-none"
+      className="relative h-full w-full select-none overflow-hidden rounded-[1.5rem]"
     >
       <OptimizedImage
         src={slide.src}
@@ -151,7 +151,7 @@ function CarouselCard({ slide, isActive, onActivate, onProductClick }) {
 
       {/* Gradient overlay */}
       <div
-        className="absolute inset-0 rounded-[2rem]"
+        className="absolute inset-0 rounded-[1.5rem]"
         style={{ background: 'linear-gradient(170deg, transparent 35%, rgba(0,0,0,0.52) 100%)' }}
       />
 
@@ -164,7 +164,7 @@ function CarouselCard({ slide, isActive, onActivate, onProductClick }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35 }}
-            className="absolute inset-0 rounded-[2rem] pointer-events-none"
+            className="absolute inset-0 rounded-[1.5rem] pointer-events-none"
             style={{ boxShadow: `0 0 0 2.5px ${slide.accent}, 0 12px 56px ${slide.accent}66` }}
           />
         )}
@@ -179,7 +179,7 @@ function CarouselCard({ slide, isActive, onActivate, onProductClick }) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute bottom-5 left-5 right-5 flex items-end justify-between"
+            className="absolute bottom-4 left-4 right-4 flex items-end justify-between"
           >
             <div className="flex flex-col gap-1">
               <span
@@ -344,19 +344,18 @@ export default function Hero() {
     <section
       ref={sectionRef}
       id="inicio"
-      className="relative min-h-screen flex items-center overflow-visible pt-28 pb-16"
+      className="relative flex min-h-[calc(100vh-2rem)] items-center overflow-visible pb-12 pt-24"
       onMouseMove={handleSectionMouseMove}
       onMouseLeave={handleSectionMouseLeave}
     >
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-10
-                      grid md:grid-cols-2 gap-12 lg:gap-20 items-center">
+      <div className="relative z-10 mx-auto grid w-full max-w-6xl items-center gap-8 px-5 md:grid-cols-2 lg:gap-14 lg:px-8">
 
         {/* ── TEXTO — capa frontal del diorama ─────────────────── */}
         <motion.div
           initial={{ opacity: 0, x: -40 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
-          className="flex flex-col gap-8 dm-gpu"
+          className="dm-gpu flex flex-col gap-5 md:gap-6"
           style={{ x: textX, y: textY }}
         >
           {/* Badge */}
@@ -364,15 +363,15 @@ export default function Hero() {
             initial={{ opacity: 0, y: -14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.18, duration: 0.52 }}
-            className="inline-flex items-center gap-2.5 w-fit px-5 py-2 rounded-full
+            className="inline-flex w-fit items-center gap-2 rounded-full px-4 py-1.5
                        border border-pink-200/80 bg-white/55 backdrop-blur-sm"
           >
             <motion.span
               animate={{ backgroundColor: accent, boxShadow: `0 0 8px ${accent}` }}
               transition={{ duration: 0.65, ease: 'easeOut' }}
-              className="w-2.5 h-2.5 rounded-full shrink-0"
+              className="h-2 w-2 shrink-0 rounded-full"
             />
-            <span className="text-xs font-bold tracking-[0.18em] uppercase text-[#be185d]">
+            <span className="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-[#be185d]">
               Pastelería Premium · Puerto Montt
             </span>
           </motion.div>
@@ -383,8 +382,7 @@ export default function Hero() {
               initial={{ opacity: 0, y: 26 }}
               animate={{ opacity: 1, y: 0, color: accentDark }}
               transition={{ delay: 0.26, duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
-              className="font-serif font-bold
-                         text-6xl sm:text-7xl lg:text-8xl xl:text-9xl"
+              className="font-serif text-5xl font-bold sm:text-6xl lg:text-7xl xl:text-8xl"
             >
               Momentos
             </motion.h1>
@@ -393,8 +391,7 @@ export default function Hero() {
               initial={{ opacity: 0.5, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.34, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-              className="font-serif font-bold
-                         text-6xl sm:text-7xl lg:text-8xl xl:text-9xl"
+              className="font-serif text-5xl font-bold sm:text-6xl lg:text-7xl xl:text-8xl"
               style={{ color: accent }}
             >
               Dulces
@@ -406,8 +403,7 @@ export default function Hero() {
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.44, duration: 0.62 }}
-            className="text-[#3f2128]/60 text-base md:text-lg lg:text-xl
-                       leading-relaxed max-w-md font-medium"
+            className="max-w-sm text-sm font-medium leading-relaxed text-[#3f2128]/60 md:text-base lg:text-lg"
           >
             Descubre nuestra selección de pasteles artesanales, creados con amor
             y los mejores ingredientes para tus celebraciones.
@@ -418,7 +414,7 @@ export default function Hero() {
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.55, duration: 0.5 }}
-            className="flex items-center gap-5 flex-wrap"
+            className="flex flex-wrap items-center gap-4"
           >
             <motion.button
               onClick={handleCatalogClick}
@@ -427,8 +423,8 @@ export default function Hero() {
               style={{
                 background: `linear-gradient(135deg, #be185d, ${accent})`,
                 boxShadow: `0 8px 32px ${accent}50`,
-                fontSize: '1rem',
-                paddingLeft: '2rem', paddingRight: '2rem',
+                fontSize: '0.92rem',
+                padding: '0.86rem 1.65rem',
               }}
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.96 }}
@@ -457,13 +453,12 @@ export default function Hero() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.82, duration: 0.65 }}
-            className="flex items-center gap-3.5"
+            className="flex items-center gap-3"
           >
             <div className="flex -space-x-2.5">
               {['🧁', '🎂', '🍰'].map((emoji, i) => (
                 <div key={i}
-                  className="w-9 h-9 rounded-full bg-white/80 border-2 border-white
-                             flex items-center justify-center text-base shadow-sm">
+                  className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-white/80 text-sm shadow-sm">
                   {emoji}
                 </div>
               ))}
@@ -480,13 +475,13 @@ export default function Hero() {
           initial={{ opacity: 0, x: 40 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1], delay: 0.12 }}
-          className="relative flex flex-col items-center gap-8 dm-gpu"
+          className="dm-gpu relative flex flex-col items-center gap-5"
           style={{ x: slideX, y: slideY }}
         >
           {/* Superficie de drag + Magnetic Stack hover */}
           <div
             className="relative w-full"
-            style={{ height: 560, cursor: dragging ? 'grabbing' : 'grab' }}
+            style={{ height: 460, cursor: dragging ? 'grabbing' : 'grab' }}
             onMouseDown={onDragStart}
             onMouseUp={onDragEnd}
             onTouchStart={onDragStart}
@@ -537,7 +532,7 @@ export default function Hero() {
           </div>
 
           {/* ── CONTROLES — con gap generoso para evitar colisión ── */}
-          <div className="flex flex-col items-center gap-5 w-full">
+          <div className="flex w-full flex-col items-center gap-3.5">
             {/* Swipe hint — separado de los dots por gap-5 */}
             <motion.p
               animate={{ opacity: dragging ? 0 : 0.42 }}
@@ -551,14 +546,14 @@ export default function Hero() {
             <Dots total={SLIDES.length} active={active} onSelect={goTo} accent={accent} />
 
             {/* Arrows */}
-            <div className="flex gap-3">
+            <div className="flex gap-2.5">
               {[{ arrow: '←', dir: -1, label: 'Anterior' }, { arrow: '→', dir: 1, label: 'Siguiente' }]
                 .map(({ arrow, dir, label }) => (
                   <motion.button
                     key={arrow}
                     aria-label={label}
                     onClick={() => goTo((active + dir + SLIDES.length) % SLIDES.length)}
-                    className="w-11 h-11 rounded-xl border border-pink-200/80
+                    className="h-10 w-10 rounded-xl border border-pink-200/80
                                bg-white/65 backdrop-blur-sm text-[#be185d] font-bold
                                hover:bg-pink-50/90 hover:border-pink-300
                                hover:shadow-[0_0_18px_rgba(244,114,182,0.28)]

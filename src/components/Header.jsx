@@ -14,7 +14,7 @@ const NAV_LINKS = [
 function scrollTo(href) {
   const el = document.getElementById(href.replace('#', ''));
   if (!el) return window.scrollTo({ top: 0, behavior: 'smooth' });
-  window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 84, behavior: 'smooth' });
+  window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 72, behavior: 'smooth' });
 }
 
 export default function Header() {
@@ -83,7 +83,7 @@ export default function Header() {
   return (
     <>
       <motion.header
-        className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center pt-5"
+        className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center pt-3 md:pt-4"
         initial={{ opacity: 0, y: -24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
@@ -94,7 +94,7 @@ export default function Header() {
             boxShadow: scrolled ? `0 18px 48px ${accent}24` : `0 8px 28px ${accent}10`,
             borderColor: scrolled ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.78)',
           }}
-          className="pointer-events-auto relative mx-5 flex w-full max-w-6xl items-center justify-between gap-4 rounded-[1.35rem] border px-5 py-3 backdrop-blur-2xl md:px-6"
+          className="pointer-events-auto relative mx-4 flex w-full max-w-5xl items-center justify-between gap-3 rounded-[1.15rem] border px-4 py-2.5 backdrop-blur-2xl md:px-5"
         >
           <div
             className="pointer-events-none absolute inset-0 rounded-[1.35rem]"
@@ -105,36 +105,36 @@ export default function Header() {
 
           <motion.button
             onClick={() => handleNav('#inicio')}
-            className="relative z-10 flex shrink-0 items-center gap-2.5"
+            className="relative z-10 flex shrink-0 items-center gap-2"
             aria-label="DulceMae - Ir al inicio"
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
           >
             <span
-              className="flex h-10 w-10 items-center justify-center rounded-2xl shadow-[0_10px_28px_rgba(190,24,93,0.20)]"
+              className="flex h-9 w-9 items-center justify-center rounded-xl shadow-[0_10px_28px_rgba(190,24,93,0.18)]"
               style={{ background: `linear-gradient(135deg, #f472b6, ${accent})` }}
             >
-              <Cake className="h-5 w-5 text-white" strokeWidth={1.8} />
+              <Cake className="h-[18px] w-[18px] text-white" strokeWidth={1.8} />
             </span>
-            <span className="select-none font-serif text-xl font-bold leading-none tracking-tight text-[#3f2128]">
+            <span className="select-none font-serif text-lg font-bold leading-none tracking-tight text-[#3f2128] md:text-xl">
               Dulce<span style={{ color: accent }}>Mae</span>
             </span>
           </motion.button>
 
-          <ul className="relative z-10 hidden items-center gap-1.5 rounded-[1.15rem] border border-pink-100/60 bg-white/42 p-1.5 md:flex">
+          <ul className="relative z-10 hidden items-center gap-1 rounded-[1rem] border border-pink-100/60 bg-white/42 p-1 md:flex">
             {NAV_LINKS.map(({ label, href }) => {
               const active = activeLink === href;
               return (
                 <li key={href}>
                   <button
                     onClick={() => handleNav(href)}
-                    className="relative min-w-[6.5rem] overflow-hidden rounded-[0.95rem] px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-white/70"
+                    className="relative min-w-[5.85rem] overflow-hidden rounded-[0.8rem] px-3 py-2 text-[0.83rem] font-semibold transition-colors hover:bg-white/70"
                     style={{ color: active ? accent : 'rgba(63,33,40,0.72)' }}
                   >
                     {active && (
                       <motion.span
                         layoutId="active-nav-pill"
-                        className="absolute inset-0 rounded-[0.95rem] border bg-white/84 shadow-[0_10px_26px_rgba(190,24,93,0.10)]"
+                        className="absolute inset-0 rounded-[0.8rem] border bg-white/84 shadow-[0_10px_26px_rgba(190,24,93,0.10)]"
                         style={{ borderColor: `${accent}2e` }}
                         transition={{ type: 'spring', stiffness: 380, damping: 32 }}
                       />
@@ -143,7 +143,7 @@ export default function Header() {
                     {active && (
                       <motion.span
                         layoutId="active-nav-dot"
-                        className="absolute bottom-1.5 left-1/2 z-10 h-1 w-1 -translate-x-1/2 rounded-full"
+                        className="absolute bottom-1 left-1/2 z-10 h-1 w-1 -translate-x-1/2 rounded-full"
                         style={{ background: accent, boxShadow: `0 0 12px ${accent}` }}
                       />
                     )}

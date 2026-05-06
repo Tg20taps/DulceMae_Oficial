@@ -49,13 +49,13 @@ function CraftMotif() {
   const accent = currentTheme.accent ?? '#be185d';
 
   return (
-    <div ref={ref} className="flex min-h-[9rem] flex-col items-center justify-center">
-      <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.28em]" style={{ color: accent, opacity: 0.62 }}>
+    <div ref={ref} className="flex min-h-[6.5rem] flex-col items-center justify-center">
+      <p className="mb-2.5 text-[9px] font-bold uppercase tracking-[0.24em]" style={{ color: accent, opacity: 0.62 }}>
         Hecho a mano en Puerto Montt
       </p>
 
       <motion.div
-        className="relative flex items-center gap-4 rounded-[2rem] border border-white/70 bg-white/48 px-5 py-4 shadow-[0_18px_64px_rgba(190,24,93,0.12)] backdrop-blur-xl"
+        className="relative flex items-center gap-3 rounded-[1.5rem] border border-white/70 bg-white/48 px-4 py-3 shadow-[0_18px_64px_rgba(190,24,93,0.10)] backdrop-blur-xl"
         initial={{ opacity: 0, y: 18, scale: 0.94 }}
         animate={inView ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 18, scale: 0.94 }}
         transition={{ duration: 0.62, ease: [0.22, 1, 0.36, 1] }}
@@ -67,7 +67,7 @@ function CraftMotif() {
         {FOOTER_MOTIFS.map(({ Icon, label }, index) => (
           <motion.div
             key={label}
-            className="relative z-10 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/80 bg-white/78"
+            className="relative z-10 flex h-11 w-11 items-center justify-center rounded-xl border border-white/80 bg-white/78"
             animate={inView ? { y: [0, index === 1 ? -5 : 4, 0] } : undefined}
             transition={{ duration: 3.2 + index * 0.35, repeat: Infinity, ease: 'easeInOut' }}
             title={label}
@@ -76,7 +76,7 @@ function CraftMotif() {
               boxShadow: `0 10px 28px ${accent}18`,
             }}
           >
-            <Icon className="h-6 w-6" strokeWidth={1.65} fill={Icon === Heart ? 'currentColor' : 'none'} />
+            <Icon className="h-5 w-5" strokeWidth={1.65} fill={Icon === Heart ? 'currentColor' : 'none'} />
           </motion.div>
         ))}
       </motion.div>
@@ -98,7 +98,7 @@ function SocialLink({ social }) {
       whileHover={{ y: -4, scale: 1.025 }}
       whileTap={{ scale: 0.96 }}
       transition={{ type: 'spring', stiffness: 360, damping: 24 }}
-      className="group relative inline-flex items-center gap-3 overflow-hidden rounded-[1.45rem] border py-2.5 pl-2.5 pr-5 text-[0.94rem] font-bold backdrop-blur-md"
+      className="group relative inline-flex items-center gap-2.5 overflow-hidden rounded-[1.2rem] border py-2 pl-2 pr-4 text-[0.88rem] font-bold backdrop-blur-md"
       style={{
         color: hovered ? '#ffffff' : '#3f2128',
         background: hovered ? hoverBg : `linear-gradient(135deg, rgba(255,255,255,0.84), ${softBg})`,
@@ -115,7 +115,7 @@ function SocialLink({ social }) {
         style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)', transform: 'skewX(-18deg)' }}
       />
       <motion.span
-        className="relative z-10 flex h-11 w-11 items-center justify-center overflow-hidden rounded-[17px]"
+        className="relative z-10 flex h-10 w-10 items-center justify-center overflow-hidden rounded-[14px]"
         animate={{ rotate: hovered ? -5 : 0, scale: hovered ? 1.05 : 1 }}
         transition={{ type: 'spring', stiffness: 360, damping: 22 }}
         style={{
@@ -152,7 +152,7 @@ export default function Footer() {
   return (
     <motion.footer
       id="footer"
-      className="relative mt-12 overflow-hidden border-t border-white/60 py-16"
+      className="relative mt-8 overflow-hidden border-t border-white/60 py-10"
       animate={{
         background: `
           linear-gradient(180deg, rgba(255,255,255,0.64), rgba(255,255,255,0.34)),
@@ -164,7 +164,7 @@ export default function Footer() {
       transition={{ duration: 0.85, ease: 'easeInOut' }}
       style={{ backdropFilter: 'blur(22px)' }}
     >
-      <div className="absolute inset-0 dm-pattern-veil opacity-70" aria-hidden="true">
+      <div className="absolute inset-0 dm-pattern-veil opacity-45" aria-hidden="true">
         <motion.div
           className="absolute inset-0 dm-pastry-pattern"
           animate={{ backgroundColor: accent }}
@@ -173,23 +173,23 @@ export default function Footer() {
       </div>
       <div className="absolute inset-x-0 top-0 h-px bg-white/80" aria-hidden="true" />
 
-      <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-center gap-10 px-6 text-center">
+      <div className="relative z-10 mx-auto flex max-w-6xl flex-col items-center gap-6 px-5 text-center">
         <div>
-          <span className="block font-serif text-4xl font-bold text-[#3f2128] md:text-5xl">
+          <span className="block font-serif text-3xl font-bold text-[#3f2128] md:text-4xl">
             Dulce<span style={{ color: accent }}>Mae</span>
           </span>
-          <p className="mt-3 text-xs font-bold uppercase tracking-[0.24em]" style={{ color: accent, opacity: 0.66 }}>
+          <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: accent, opacity: 0.66 }}>
             Pastelería artesanal · Puerto Montt
           </p>
         </div>
 
         <CraftMotif />
 
-        <div className="flex flex-wrap justify-center gap-3">
+        <div className="flex flex-wrap justify-center gap-2.5">
           {SOCIALS.map((social) => <SocialLink key={social.label} social={social} />)}
         </div>
 
-        <div className="flex w-full flex-col items-center justify-between gap-2 border-t border-pink-100/70 pt-7 text-xs text-[#3f2128]/45 md:flex-row">
+        <div className="flex w-full flex-col items-center justify-between gap-2 border-t border-pink-100/70 pt-5 text-[11px] text-[#3f2128]/45 md:flex-row">
           <p>© {new Date().getFullYear()} DulceMae Online. Todos los derechos reservados.</p>
           <p className="italic">Diseñado para endulzar tus momentos.</p>
         </div>

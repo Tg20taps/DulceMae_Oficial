@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Minus, Plus, Trash2, Calendar, User, ArrowRight, Sparkles, ChevronLeft, Phone, Clock3, MessageSquare, AlertCircle } from 'lucide-react';
+import { X, Minus, Plus, Trash2, Calendar, User, ArrowRight, Sparkles, ChevronLeft, Phone, Clock3, MessageSquare, AlertCircle, MapPin, CreditCard, Home } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { trackEvent } from '../utils/analytics';
 import OptimizedImage from './OptimizedImage';
@@ -175,6 +175,8 @@ function formatCLP(n) {
   return `$${n.toLocaleString('es-CL')}`;
 }
 
+const DELIVERY_FEE_CLP = 3500;
+
 /* ── DATA SCIENCE — Payload builder ──────────────────────────
    Fuente única de verdad para webhook y WhatsApp.
    - created_at ISO 8601 → Sheets lo parsea como fecha nativa
@@ -201,7 +203,11 @@ function getAtelierPromise(cartItems) {
   };
 }
 
-function buildOrderPayload(cartItems, cartTotal, formData) {
+function buildOrderPayload(cartItems, productSubtotal, formData) {
+  const isDelivery = formData.fulfillment === 'delivery';
+  const deliveryFee = isDelivery ? DELIVERY_FEE_CLP : 0;
+  const total = productSubtotal + deliveryFee;
+
   return {
     order_id: `DM-${Date.now()}`,
     created_at: new Date().toISOString(),
@@ -213,6 +219,17 @@ function buildOrderPayload(cartItems, cartTotal, formData) {
       preferred_time: formData.time,
       comments: formData.comments.trim(),
     },
+    fulfillment: {
+      type: formData.fulfillment,
+      label: isDelivery ? 'Delivery' : 'Retiro',
+      address: isDelivery ? formData.address.trim() : '',
+      delivery_fee_clp: deliveryFee,
+      delivery_note: isDelivery ? 'Costo de delivery estimado. Puede confirmarse segun sector.' : '',
+    },
+    payment: {
+      method: formData.paymentMethod,
+      label: formData.paymentMethod === 'cash' ? 'Efectivo' : 'Transferencia',
+    },
     items: cartItems.map(item => ({
       id: item.id,
       name: item.name,
@@ -222,7 +239,9 @@ function buildOrderPayload(cartItems, cartTotal, formData) {
     })),
     summary: {
       item_count: cartItems.reduce((s, i) => s + i.quantity, 0),
-      total_clp: cartTotal,
+      subtotal_products_clp: productSubtotal,
+      delivery_fee_clp: deliveryFee,
+      total_clp: total,
     },
   };
 }
@@ -524,12 +543,17 @@ const CartModal = () => {
     phone: '',
     date: '',
     time: '',
+    fulfillment: 'pickup',
+    address: '',
+    paymentMethod: 'transfer',
     comments: '',
   });
   const [errors, setErrors] = useState({});
   const [recentlyAdded, setRecentlyAdded] = useState({});
 
   const itemCount = cartItems.reduce((s, i) => s + i.quantity, 0);
+  const checkoutDeliveryFee = formData.fulfillment === 'delivery' ? DELIVERY_FEE_CLP : 0;
+  const checkoutTotal = cartTotal + checkoutDeliveryFee;
 
   const getMinDate = () => {
     const d = new Date();
@@ -555,6 +579,10 @@ const CartModal = () => {
     if (phoneDigits.length < 8) nextErrors.phone = 'Agrega un teléfono válido para confirmar.';
     if (!formData.date) nextErrors.date = 'Elige una fecha de entrega.';
     if (!formData.time) nextErrors.time = 'Indica una hora preferida.';
+    if (formData.fulfillment === 'delivery' && formData.address.trim().length < 8) {
+      nextErrors.address = 'Agrega una dirección clara para confirmar delivery.';
+    }
+    if (!formData.paymentMethod) nextErrors.paymentMethod = 'Elige transferencia o efectivo.';
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -576,6 +604,9 @@ const CartModal = () => {
       customer_name: payload.customer.name,
       delivery_date: payload.customer.delivery_date,
       preferred_time: payload.customer.preferred_time,
+      fulfillment_type: payload.fulfillment.type,
+      payment_method: payload.payment.method,
+      delivery_fee_clp: payload.summary.delivery_fee_clp,
       item_count: payload.summary.item_count,
       total_clp: payload.summary.total_clp,
       items: payload.items.map(i => ({ id: i.id, name: i.name, qty: i.quantity })),
@@ -625,7 +656,35 @@ const CartModal = () => {
       `Quedo atenta a su confirmación. ¡Muchas gracias! 🎂✨`,
     ].filter(Boolean).join('\n');
 
-    window.open(`https://wa.me/56975562291?text=${encodeURIComponent(waMessage)}`, '_blank');
+    const detailedWaMessage = [
+      `Hola DulceMae, soy *${payload.customer.name}* y quiero hacer un pedido.`,
+      ``,
+      `*MI PEDIDO:*`,
+      itemLines,
+      ``,
+      `*Datos del pedido*`,
+      `Telefono: ${payload.customer.phone}`,
+      `Fecha deseada: ${dateFormatted}`,
+      `Hora preferida: ${payload.customer.preferred_time}`,
+      `Modalidad: ${payload.fulfillment.label}`,
+      payload.fulfillment.type === 'delivery'
+        ? `Direccion: ${payload.fulfillment.address}`
+        : `Retiro: coordinar retiro en DulceMae`,
+      `Pago: ${payload.payment.label}`,
+      payload.customer.comments ? `Comentarios: ${payload.customer.comments}` : null,
+      ``,
+      `*Resumen*`,
+      `Subtotal productos: ${formatCLP(payload.summary.subtotal_products_clp)}`,
+      payload.summary.delivery_fee_clp > 0 ? `Delivery estimado: ${formatCLP(payload.summary.delivery_fee_clp)}` : null,
+      `*Total estimado: ${formatCLP(payload.summary.total_clp)}*`,
+      payload.fulfillment.delivery_note ? `_Nota: ${payload.fulfillment.delivery_note}_` : null,
+      ``,
+      `Referencia: ${payload.order_id}`,
+      ``,
+      `Quedo atenta a su confirmacion. Muchas gracias.`,
+    ].filter(Boolean).join('\n') || waMessage;
+
+    window.open(`https://wa.me/56975562291?text=${encodeURIComponent(detailedWaMessage)}`, '_blank');
   };
 
   function handleUpsellAdd(upsellItem) {
@@ -863,16 +922,17 @@ const CartModal = () => {
                         Total a pagar
                       </p>
                       <motion.p
-                        key={cartTotal}
+                        key={checkoutTotal}
                         initial={{ scale: 1.05 }}
                         animate={{ scale: 1 }}
                         className="font-serif text-4xl font-bold text-[#3f2128]"
                       >
-                        {formatCLP(cartTotal)}
+                        {formatCLP(checkoutTotal)}
                       </motion.p>
-                      <p className="text-xs text-[#3f2128]/40 font-medium mt-1">
-                        {itemCount} {itemCount === 1 ? 'producto' : 'productos'}
-                      </p>
+                      <div className="mt-2 space-y-1 text-xs font-medium text-[#3f2128]/48">
+                        <p>{itemCount} {itemCount === 1 ? 'producto' : 'productos'} · productos {formatCLP(cartTotal)}</p>
+                        {checkoutDeliveryFee > 0 && <p>Delivery estimado {formatCLP(checkoutDeliveryFee)}</p>}
+                      </div>
                     </div>
 
                     {/* Campos */}
@@ -936,6 +996,104 @@ const CartModal = () => {
                             <AlertCircle className="h-3.5 w-3.5" /> {errors.phone}
                           </p>
                         )}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-[#3f2128]/70 mb-2 ml-1">
+                          Retiro o delivery
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { value: 'pickup', label: 'Retiro', Icon: Home, detail: 'Sin costo' },
+                            { value: 'delivery', label: 'Delivery', Icon: MapPin, detail: `+ ${formatCLP(DELIVERY_FEE_CLP)}` },
+                          ].map(({ value, label, Icon, detail }) => {
+                            const active = formData.fulfillment === value;
+                            return (
+                              <button
+                                key={value}
+                                type="button"
+                                onClick={() => updateField('fulfillment', value)}
+                                className="rounded-2xl border px-3 py-3 text-left transition"
+                                style={{
+                                  background: active ? 'rgba(190,24,93,0.10)' : 'rgba(255,255,255,0.70)',
+                                  borderColor: active ? 'rgba(190,24,93,0.42)' : 'rgba(249,168,212,0.32)',
+                                }}
+                              >
+                                <span className="flex items-center gap-2 text-sm font-bold text-[#3f2128]">
+                                  <Icon className="h-4 w-4 text-[#be185d]" />
+                                  {label}
+                                </span>
+                                <span className="mt-1 block text-xs font-semibold text-[#3f2128]/45">{detail}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {formData.fulfillment === 'delivery' && (
+                          <p className="mt-2 ml-1 text-xs font-medium leading-snug text-[#3f2128]/42">
+                            El delivery queda estimado en {formatCLP(DELIVERY_FEE_CLP)} y se confirma segÃºn sector.
+                          </p>
+                        )}
+                      </div>
+
+                      {formData.fulfillment === 'delivery' && (
+                        <div>
+                          <label className="block text-sm font-bold text-[#3f2128]/70 mb-2 ml-1">
+                            DirecciÃ³n de entrega
+                          </label>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                              <MapPin className="w-4 h-4 text-pink-300" />
+                            </div>
+                            <input
+                              type="text"
+                              required
+                              value={formData.address}
+                              onChange={(e) => updateField('address', e.target.value)}
+                              className="w-full pl-11 pr-4 py-3.5 rounded-2xl outline-none transition-all placeholder-gray-400 text-sm font-medium"
+                              style={{
+                                background: 'rgba(255,255,255,0.75)',
+                                border: errors.address ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)',
+                                color: '#3f2128',
+                              }}
+                              placeholder="Calle, nÃºmero, sector o referencia"
+                            />
+                          </div>
+                          {errors.address && (
+                            <p className="mt-2 ml-1 flex items-center gap-1.5 text-xs font-semibold text-red-500">
+                              <AlertCircle className="h-3.5 w-3.5" /> {errors.address}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-sm font-bold text-[#3f2128]/70 mb-2 ml-1">
+                          MÃ©todo de pago
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { value: 'transfer', label: 'Transferencia' },
+                            { value: 'cash', label: 'Efectivo' },
+                          ].map(({ value, label }) => {
+                            const active = formData.paymentMethod === value;
+                            return (
+                              <button
+                                key={value}
+                                type="button"
+                                onClick={() => updateField('paymentMethod', value)}
+                                className="flex items-center gap-2 rounded-2xl border px-3 py-3 text-sm font-bold transition"
+                                style={{
+                                  background: active ? 'rgba(190,24,93,0.10)' : 'rgba(255,255,255,0.70)',
+                                  borderColor: active ? 'rgba(190,24,93,0.42)' : 'rgba(249,168,212,0.32)',
+                                  color: '#3f2128',
+                                }}
+                              >
+                                <CreditCard className="h-4 w-4 text-[#be185d]" />
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
 
                       {/* Fecha */}

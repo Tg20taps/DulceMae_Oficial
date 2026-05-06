@@ -88,19 +88,19 @@ function LiveStatusBadge() {
 function InfoPill({ icon: Icon, text, accent = false }) {
   return (
     <div
-      className="flex items-center gap-3 rounded-2xl border px-4 py-3"
+      className="flex items-center gap-3 rounded-xl border px-3.5 py-2.5"
       style={{
         background: accent ? 'rgba(253,242,248,0.82)' : 'rgba(255,255,255,0.58)',
         borderColor: accent ? 'rgba(249,168,212,0.58)' : 'rgba(255,255,255,0.68)',
       }}
     >
       <div
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
         style={{ background: accent ? 'rgba(190,24,93,0.10)' : '#fdf2f8' }}
       >
         <Icon className={`h-4 w-4 ${accent ? 'text-[#be185d]' : 'text-pink-400'}`} />
       </div>
-      <span className="text-sm font-medium leading-tight text-[#3f2128]/80">{text}</span>
+      <span className="text-[0.84rem] font-medium leading-tight text-[#3f2128]/80">{text}</span>
     </div>
   );
 }
@@ -122,7 +122,7 @@ function MapButton({ url }) {
           : '0 6px 24px rgba(190,24,93,0.20)',
       }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl px-6 py-4 text-sm font-bold text-white"
+      className="relative flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-xl px-5 py-3.5 text-sm font-bold text-white"
       style={{
         background: hovered
           ? 'linear-gradient(135deg, #9f1239, #be185d, #f472b6)'
@@ -163,11 +163,11 @@ function DulceMaeMapPin({ hovered }) {
             ? '0 22px 58px rgba(190,24,93,0.38), 0 0 0 8px rgba(190,24,93,0.10)'
             : '0 18px 42px rgba(190,24,93,0.24), 0 0 0 5px rgba(255,255,255,0.62)',
         }}
-        className="relative flex h-20 w-20 items-center justify-center rounded-full border border-white/85 p-2 backdrop-blur-md"
+        className="relative flex h-16 w-16 items-center justify-center rounded-full border border-white/85 p-2 backdrop-blur-md"
         style={{ background: 'linear-gradient(145deg, #be185d, #e11d72)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.28)' }}
       >
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/80 bg-white shadow-inner">
-          <Store className="h-7 w-7 text-[#be185d]" strokeWidth={1.65} />
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/80 bg-white shadow-inner">
+          <Store className="h-6 w-6 text-[#be185d]" strokeWidth={1.65} />
         </div>
       </motion.div>
 
@@ -178,7 +178,7 @@ function DulceMaeMapPin({ hovered }) {
       <motion.div
         animate={{ scale: hovered ? 1.18 : [1, 1.08, 1], opacity: hovered ? 0.24 : [0.18, 0.28, 0.18] }}
         transition={{ duration: 2.4, repeat: hovered ? 0 : Infinity, ease: 'easeInOut' }}
-        className="mt-1 h-3 w-20 rounded-full bg-[#be185d]"
+        className="mt-1 h-3 w-16 rounded-full bg-[#be185d]"
         style={{ filter: 'blur(10px)' }}
       />
     </motion.div>
@@ -197,7 +197,7 @@ function MapPreview() {
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
       whileTap={{ scale: 0.985 }}
-      className="group relative block h-72 min-h-[340px] w-full overflow-hidden rounded-[2rem] border border-pink-200/60 md:h-full"
+      className="group relative block h-72 min-h-[300px] w-full overflow-hidden rounded-[1.6rem] border border-pink-200/60 md:h-full"
       style={{
         background: '#fff7fb',
         boxShadow: hovered
@@ -255,23 +255,23 @@ function MapPreview() {
 
 export default function Location() {
   return (
-    <section id="ubicacion" className="px-6 py-20">
-      <div className="mx-auto max-w-5xl">
+    <section id="ubicacion" className="px-5 py-16">
+      <div className="mx-auto max-w-4xl">
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '0px 0px 22% 0px' }}
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="mb-14 text-center"
+          className="mb-10 text-center"
         >
           <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-pink-200 bg-pink-50/60 px-4 py-1.5 text-xs font-bold uppercase text-[#be185d]">
             <MapPin className="h-3 w-3" />
             Visítanos
           </span>
-          <h2 className="mt-2 font-serif text-5xl font-bold leading-tight text-[#3f2128] md:text-6xl">
+          <h2 className="mt-2 font-serif text-4xl font-bold leading-tight text-[#3f2128] md:text-5xl">
             Encuéntranos
           </h2>
-          <p className="mx-auto mt-4 max-w-md text-base font-medium leading-relaxed text-[#3f2128]/55">
+          <p className="mx-auto mt-3 max-w-md text-sm font-medium leading-relaxed text-[#3f2128]/55 md:text-base">
             Ven por tus dulces favoritos y coordina tu pedido con calma.{' '}
             <span className="text-[#be185d]">Te esperamos con algo rico.</span>
           </p>
@@ -282,19 +282,19 @@ export default function Location() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '0px 0px 20% 0px' }}
           transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
-          className="grid items-stretch gap-6 md:grid-cols-2"
+          className="grid items-stretch gap-5 md:grid-cols-2"
         >
           <div className="order-2 md:order-1">
             <MapPreview />
           </div>
 
-          <div className="order-1 flex flex-col gap-4 rounded-[2rem] border border-white/70 bg-white/60 p-6 shadow-xl backdrop-blur-xl md:order-2">
+          <div className="order-1 flex flex-col gap-3.5 rounded-[1.6rem] border border-white/70 bg-white/60 p-5 shadow-xl backdrop-blur-xl md:order-2">
             <div className="border-b border-pink-100/60 pb-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs font-bold uppercase text-pink-400">Nuestra tienda</p>
                 <LiveStatusBadge />
               </div>
-              <h3 className="mt-1 font-serif text-3xl font-bold text-[#3f2128]">{STORE.name}</h3>
+              <h3 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">{STORE.name}</h3>
               <p className="mt-0.5 text-sm font-medium text-[#3f2128]/50">{STORE.region}</p>
             </div>
 
