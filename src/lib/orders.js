@@ -1,7 +1,8 @@
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-const isOrdersApiConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+import {
+  buildSupabaseRestUrl,
+  isSupabaseConfigured as isOrdersApiConfigured,
+  supabaseAnonKey,
+} from './supabaseConfig';
 
 export function buildOrderRecord(payload) {
   return {
@@ -38,7 +39,7 @@ export async function saveCheckoutOrder(payload) {
     return { ok: false, skipped: true, reason: 'supabase_not_configured' };
   }
 
-  const response = await fetch(`${supabaseUrl}/rest/v1/orders`, {
+  const response = await fetch(buildSupabaseRestUrl('orders'), {
     method: 'POST',
     headers: {
       apikey: supabaseAnonKey,

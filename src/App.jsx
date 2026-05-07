@@ -80,6 +80,45 @@ function SectionFallback() {
   );
 }
 
+function AdminErrorFallback() {
+  return (
+    <main className="min-h-screen bg-[#fff7fb] px-4 py-10 text-[#321b24]">
+      <section className="mx-auto flex min-h-[70vh] w-full max-w-xl flex-col justify-center rounded-[2rem] border border-pink-100 bg-white/84 p-7 shadow-[0_24px_80px_rgba(190,24,93,0.14)]">
+        <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#be185d]/60">Panel privado</p>
+        <h1 className="mt-3 font-serif text-3xl font-bold text-[#3f2128]">No pudimos cargar el admin</h1>
+        <p className="mt-3 text-sm font-medium leading-7 text-[#3f2128]/62">
+          Revisa que las variables de Supabase esten guardadas en Vercel para Production y vuelve a desplegar.
+        </p>
+        <div className="mt-6 grid gap-3 text-xs font-bold text-[#be185d]">
+          <code className="rounded-2xl border border-pink-100 bg-[#fff7fb] px-4 py-3">VITE_SUPABASE_URL</code>
+          <code className="rounded-2xl border border-pink-100 bg-[#fff7fb] px-4 py-3">VITE_SUPABASE_ANON_KEY</code>
+          <code className="rounded-2xl border border-pink-100 bg-[#fff7fb] px-4 py-3">VITE_ADMIN_ALLOWED_EMAILS</code>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+class AdminErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error) {
+    console.error('DulceMae admin failed to load', error);
+  }
+
+  render() {
+    if (this.state.hasError) return <AdminErrorFallback />;
+    return this.props.children;
+  }
+}
+
 function AppInterior() {
   const [showToast, setShowToast] = useState(false);
   const [preloading, setPreloading] = useState(() => !sessionStorage.getItem('dm_visited'));
@@ -216,9 +255,11 @@ export default function App() {
   return (
     <ThemeProvider>
       {isAdminRoute ? (
-        <Suspense fallback={<SectionFallback />}>
-          <AdminShell />
-        </Suspense>
+        <AdminErrorBoundary>
+          <Suspense fallback={<SectionFallback />}>
+            <AdminShell />
+          </Suspense>
+        </AdminErrorBoundary>
       ) : (
         <AppInterior />
       )}
