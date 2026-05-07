@@ -98,31 +98,46 @@ grant select, update, delete on public.orders to authenticated;
 
 alter table public.orders enable row level security;
 
-drop policy if exists "Public checkout can create orders" on public.orders;
+do $$
+declare
+  policy_record record;
+begin
+  for policy_record in
+    select policyname
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'orders'
+  loop
+    execute format('drop policy if exists %I on public.orders', policy_record.policyname);
+  end loop;
+end;
+$$;
+
 create policy "Public checkout can create orders"
 on public.orders
+as permissive
 for insert
-to anon, authenticated
+to public
 with check (true);
 
-drop policy if exists "Admins can read orders" on public.orders;
 create policy "Admins can read orders"
 on public.orders
+as permissive
 for select
 to authenticated
 using (public.is_dulcemae_admin());
 
-drop policy if exists "Admins can update orders" on public.orders;
 create policy "Admins can update orders"
 on public.orders
+as permissive
 for update
 to authenticated
 using (public.is_dulcemae_admin())
 with check (public.is_dulcemae_admin());
 
-drop policy if exists "Admins can delete orders" on public.orders;
 create policy "Admins can delete orders"
 on public.orders
+as permissive
 for delete
 to authenticated
 using (public.is_dulcemae_admin());

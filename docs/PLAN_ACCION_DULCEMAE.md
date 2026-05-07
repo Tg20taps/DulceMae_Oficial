@@ -17,6 +17,44 @@ La base actual ya sirve como primer MVP visual y comercial:
 
 El punto importante: ya existe el flujo cliente -> carrito -> formulario -> WhatsApp. Antes de backend, conviene ordenar los datos y la experiencia.
 
+## Checkpoint para continuar en una pestaña nueva
+
+Fecha de trabajo: 2026-05-07.
+
+Prioridad inmediata:
+
+- Resolver guardado de pedidos en Supabase.
+- El problema detectado no es que `/admin` sea otro link: es RLS/politicas de `orders`.
+- La tabla `public.orders` existe, pero despues de pruebas seguia en `0` pedidos.
+- El fix correcto debe resetear todas las policies antiguas de `public.orders` y recrear:
+  - Insert publico para checkout.
+  - Select/update/delete solo para admin autenticado.
+- Archivo principal para correr en Supabase SQL Editor: `supabase/fix_orders_access.sql`.
+- Al correrlo, usar Run sobre todo el script, no solo "Run selected" con las consultas de conteo.
+- Despues de correrlo, probar con un pedido nuevo. Los pedidos enviados antes del fix no apareceran porque Supabase los bloqueo.
+
+Estado de admin:
+
+- Login admin con `claudiamancilla1978@gmail.com`.
+- Pedidos recientes lee la tabla `orders`.
+- Cancelar pedido no borra: cambia estado a `cancelled`, guarda motivo, nota y fecha.
+- Motivos de cancelacion listos para analisis:
+  - Pedido de prueba.
+  - Cliente no confirmo.
+  - Fuera de zona.
+  - Sin disponibilidad.
+  - Producto no disponible.
+  - Pedido duplicado.
+  - Otro motivo.
+- Ventas visibles excluye pedidos cancelados.
+
+Estado de checkout:
+
+- Horario permitido: 10:00 a 22:00.
+- Campo hora usa formato 24 h por compatibilidad nativa.
+- Se debe mostrar ayuda clara: `15:30 = 3:30 p.m.` y, cuando hay hora elegida, su equivalente a.m./p.m.
+- El mensaje de WhatsApp debe mantener tono cercano y llevar datos estructurados.
+
 ## Fase 1 - Cerrar identidad visual y UX publica
 
 Meta: dejar la pagina lista para clientes reales, fluida y coherente.
@@ -343,6 +381,19 @@ Estas ideas quedan registradas para retomarlas por etapas sin sobrecargar el sis
 - Pantallas simples, con acciones grandes y pocas decisiones por vista.
 - Modulo siguiente recomendado: catalogo administrable con fotos y productos.
 - Luego: pedidos manuales para registrar encargos que lleguen directo por WhatsApp.
+- Ideas de mejora para pedirle a la IA en siguientes sesiones:
+  - Vista "Hoy" con pedidos urgentes primero.
+  - Filtros simples: Nuevo, En preparacion, Listo, Entregado, Cancelado.
+  - Busqueda por nombre, telefono o referencia.
+  - Botones de mensaje rapido para WhatsApp: confirmar, pedir abono, avisar listo, pedir ubicacion.
+  - Vista detalle de pedido con productos, comentarios, direccion, pago y botones grandes.
+  - Registro de pedido manual para pedidos que entren directo por WhatsApp.
+  - Catalogo editable con foto, precio, categoria, disponibilidad y producto destacado.
+  - Atajos de productos frecuentes y variantes para no repetir escritura.
+  - Estadisticas simples: productos mas vendidos, cancelaciones por motivo, zonas con mas delivery, dias fuertes.
+  - Alerta de capacidad diaria para no aceptar mas pedidos de los que se pueden preparar.
+  - Exportacion CSV/Excel para analisis.
+  - Modo "limpio para mama": ocultar textos tecnicos y mostrar solo acciones claras.
 
 ## Fase 7 - Automatizacion WhatsApp sin pago online
 

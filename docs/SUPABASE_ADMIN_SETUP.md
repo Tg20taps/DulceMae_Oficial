@@ -17,7 +17,9 @@ VITE_ADMIN_ALLOWED_EMAILS=claudiamancilla1978@gmail.com
 3. Verifica que el correo dentro de `public.is_dulcemae_admin()` sea exactamente `claudiamancilla1978@gmail.com`.
 4. Ejecuta el script.
 
-Si el panel `/admin` abre bien pero muestra `Sin pedidos todavia` aunque ya se envio un pedido por WhatsApp, corre `supabase/fix_orders_access.sql` en Supabase SQL Editor. Ese archivo actualiza el correo admin de RLS y los permisos de lectura/escritura necesarios.
+Si el panel `/admin` abre bien pero muestra `Sin pedidos todavia` aunque ya se envio un pedido por WhatsApp, corre `supabase/fix_orders_access.sql` en Supabase SQL Editor. Ese archivo actualiza el correo admin de RLS, borra policies antiguas de `orders` y recrea los permisos correctos de lectura/escritura.
+
+Importante: en Supabase usa Run sobre todo el script. Si queda seleccionado solo el bloque de diagnostico (`select count(*)...`), Supabase ejecuta solo esa parte y no cambia las policies.
 
 El mismo script tambien agrega los campos de cancelacion:
 

@@ -277,6 +277,18 @@ const CHECKOUT_TIME_MIN = '10:00';
 const CHECKOUT_TIME_MAX = '22:00';
 const CHECKOUT_TIME_LABEL = '10:00 a 22:00';
 
+function formatTimeMeridiem(value) {
+  if (!value) return '';
+  const [hourText, minuteText = '00'] = value.split(':');
+  const hour = Number(hourText);
+  if (!Number.isFinite(hour)) return '';
+
+  const minute = String(Number(minuteText) || 0).padStart(2, '0');
+  const hour12 = hour % 12 || 12;
+  const suffix = hour < 12 ? 'a.m.' : 'p.m.';
+  return `${hour12}:${minute} ${suffix}`;
+}
+
 function isCheckoutDateUnavailable(value, minValue) {
   return Boolean(value && minValue && value < minValue);
 }
@@ -701,6 +713,7 @@ const CartModal = () => {
   const minCheckoutDateHint = useMemo(() => formatCheckoutDateHint(minCheckoutDate), [minCheckoutDate]);
   const checkoutDateUnavailable = isCheckoutDateUnavailable(formData.date, minCheckoutDate);
   const checkoutTimeUnavailable = isCheckoutTimeUnavailable(formData.time);
+  const selectedTimeMeridiem = formatTimeMeridiem(formData.time);
   const orderSummary = useMemo(() => {
     const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
     const productSubtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -851,6 +864,8 @@ const CartModal = () => {
     const dateFormatted = new Date(payload.customer.delivery_date + 'T12:00:00')
       .toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
+    const preferredTimeReadable = formatTimeMeridiem(payload.customer.preferred_time);
+
     const cleanItemLines = payload.items
       .map(i => `${getProductMessageEmoji(i.name)} ${i.quantity}x ${i.name} — ${formatCLP(i.subtotal)}`)
       .join('\n');
@@ -890,6 +905,7 @@ const CartModal = () => {
       `📅 *Para la entrega*`,
       `Me gustaría para el ${dateFormatted}`,
       `Ojalá cerca de las ${payload.customer.preferred_time}`,
+      preferredTimeReadable ? `Equivale a ${preferredTimeReadable}` : null,
       ...deliveryLines,
       ``,
       `💳 *Pago y contacto*`,
@@ -1502,9 +1518,14 @@ const CartModal = () => {
                             Horario no disponible. Elige entre {CHECKOUT_TIME_LABEL}.
                           </p>
                         ) : (
-                          <p className="mt-2 ml-1 text-xs font-semibold leading-snug text-[#3f2128]/38">
-                            Horario disponible: {CHECKOUT_TIME_LABEL}. Ej. 15:30.
-                          </p>
+                          <div className="mt-2 ml-1 space-y-1 text-xs font-semibold leading-snug text-[#3f2128]/42">
+                            {formData.time && selectedTimeMeridiem && (
+                              <p className="text-[#be185d]">
+                                Hora seleccionada: {formData.time} = {selectedTimeMeridiem}.
+                              </p>
+                            )}
+                            <p>Horario disponible: {CHECKOUT_TIME_LABEL}. Formato 24 h: 15:30 = 3:30 p.m.</p>
+                          </div>
                         )}
                         {errors.time && !checkoutTimeUnavailable && (
                           <p className="mt-2 ml-1 flex items-center gap-1.5 text-xs font-semibold text-red-500">
