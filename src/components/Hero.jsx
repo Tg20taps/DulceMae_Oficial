@@ -144,6 +144,7 @@ function CarouselCard({ slide, isActive, onActivate, onProductClick }) {
         alt={slide.label}
         sizes="(min-width: 768px) 48vw, 92vw"
         loading={isActive ? 'eager' : 'lazy'}
+        fetchPriority={isActive ? 'high' : 'low'}
         draggable={false}
         className="w-full h-full object-cover pointer-events-none"
         style={{ transform: 'translateZ(0)' }}

@@ -1262,46 +1262,34 @@ const CartModal = () => {
                         <label className="block text-sm font-bold text-[#3f2128]/70 mb-2 ml-1">
                           Fecha de Entrega
                         </label>
-                        <div
-                          className="relative rounded-2xl border px-4 py-3 transition-all focus-within:shadow-[0_0_0_3px_rgba(190,24,93,0.10)]"
-                          style={{
-                            background: 'rgba(255,255,255,0.78)',
-                            borderColor: errors.date || checkoutDateUnavailable ? 'rgba(239,68,68,0.58)' : 'rgba(249,168,212,0.35)',
-                          }}
-                        >
-                          <div className="flex min-h-[58px] items-center gap-3">
-                            <Calendar className="h-4 w-4 shrink-0 text-pink-300" />
-                            <div className="min-w-0 flex-1">
-                              <input
-                                type="date"
-                                required
-                                min={minCheckoutDate}
-                                value={formData.date}
-                                onChange={(e) => updateField('date', e.target.value)}
-                                aria-invalid={checkoutDateUnavailable || Boolean(errors.date)}
-                                className="h-7 w-full bg-transparent p-0 text-[15px] font-semibold text-[#3f2128] outline-none [color-scheme:light]"
-                              />
-                              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] font-bold leading-none">
-                                <span
-                                  className="rounded-full px-2.5 py-1.5"
-                                  style={{
-                                    background: checkoutDateUnavailable ? 'rgba(239,68,68,0.10)' : 'rgba(190,24,93,0.08)',
-                                    color: checkoutDateUnavailable ? '#ef4444' : 'rgba(190,24,93,0.70)',
-                                  }}
-                                >
-                                  {formData.date ? formatCheckoutDateHint(formData.date) : `Ej. ${minCheckoutDateHint}`}
-                                </span>
-                                <span className={checkoutDateUnavailable ? 'text-red-500' : 'text-[#3f2128]/38'}>
-                                  {checkoutDateUnavailable ? 'fecha no disponible' : 'mínimo 48 horas'}
-                                </span>
-                              </div>
-                            </div>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <Calendar className="w-4 h-4 text-pink-300" />
                           </div>
+                          <input
+                            type="date"
+                            required
+                            min={minCheckoutDate}
+                            value={formData.date}
+                            onChange={(e) => updateField('date', e.target.value)}
+                            onInput={(e) => updateField('date', e.currentTarget.value)}
+                            aria-invalid={checkoutDateUnavailable || Boolean(errors.date)}
+                            className="min-h-[52px] w-full pl-11 pr-4 py-3 rounded-2xl outline-none transition-all text-sm font-bold [color-scheme:light]"
+                            style={{
+                              background: 'rgba(255,255,255,0.75)',
+                              border: errors.date || checkoutDateUnavailable ? '1.5px solid rgba(239,68,68,0.58)' : '1.5px solid rgba(249,168,212,0.35)',
+                              color: '#3f2128',
+                            }}
+                          />
                         </div>
-                        {checkoutDateUnavailable && (
-                          <p className="mt-2 ml-1 flex items-start gap-1.5 text-xs font-semibold leading-snug text-red-500">
-                            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                            <span>Elige una fecha desde {minCheckoutDateHint}. Necesitamos 48 horas de anticipación.</span>
+                        {checkoutDateUnavailable ? (
+                          <p className="mt-2 ml-1 flex items-center gap-1.5 text-xs font-semibold text-red-500">
+                            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                            Fecha no disponible. Elige desde {minCheckoutDateHint}.
+                          </p>
+                        ) : (
+                          <p className="mt-2 ml-1 text-xs font-semibold leading-snug text-[#3f2128]/38">
+                            Ej. {minCheckoutDateHint} · mínimo 48 horas de anticipación.
                           </p>
                         )}
                         {errors.date && !checkoutDateUnavailable && (
@@ -1314,33 +1302,28 @@ const CartModal = () => {
                         <label className="block text-sm font-bold text-[#3f2128]/70 mb-2 ml-1">
                           Hora preferida
                         </label>
-                        <div
-                          className="relative rounded-2xl border px-4 py-3 transition-all focus-within:shadow-[0_0_0_3px_rgba(190,24,93,0.10)]"
-                          style={{
-                            background: 'rgba(255,255,255,0.78)',
-                            borderColor: errors.time ? 'rgba(239,68,68,0.55)' : 'rgba(249,168,212,0.35)',
-                          }}
-                        >
-                          <div className="flex min-h-[58px] items-center gap-3">
-                            <Clock3 className="h-4 w-4 shrink-0 text-pink-300" />
-                            <div className="min-w-0 flex-1">
-                              <input
-                                type="time"
-                                required
-                                step="900"
-                                value={formData.time}
-                                onChange={(e) => updateField('time', e.target.value)}
-                                className="h-7 w-full bg-transparent p-0 text-[15px] font-semibold text-[#3f2128] outline-none [color-scheme:light]"
-                              />
-                              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] font-bold leading-none">
-                                <span className="rounded-full bg-[#be185d]/8 px-2.5 py-1.5 text-[#be185d]/70">
-                                  {formData.time ? `Elegida: ${formData.time}` : 'Ej. 15:30'}
-                                </span>
-                                <span className="text-[#3f2128]/38">elige una hora aproximada</span>
-                              </div>
-                            </div>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <Clock3 className="w-4 h-4 text-pink-300" />
                           </div>
+                          <input
+                            type="time"
+                            required
+                            step="900"
+                            value={formData.time}
+                            onChange={(e) => updateField('time', e.target.value)}
+                            onInput={(e) => updateField('time', e.currentTarget.value)}
+                            className="min-h-[52px] w-full pl-11 pr-4 py-3 rounded-2xl outline-none transition-all text-sm font-bold [color-scheme:light]"
+                            style={{
+                              background: 'rgba(255,255,255,0.75)',
+                              border: errors.time ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)',
+                              color: '#3f2128',
+                            }}
+                          />
                         </div>
+                        <p className="mt-2 ml-1 text-xs font-semibold leading-snug text-[#3f2128]/38">
+                          Ej. 15:30 · elige una hora aproximada.
+                        </p>
                         {errors.time && (
                           <p className="mt-2 ml-1 flex items-center gap-1.5 text-xs font-semibold text-red-500">
                             <AlertCircle className="h-3.5 w-3.5" /> {errors.time}

@@ -155,6 +155,8 @@ function ProductCard({ product, index, onAdd, onHoverStart, onHoverEnd, highligh
             src={product.image}
             alt={product.name}
             sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+            loading={index < 2 ? 'eager' : 'lazy'}
+            fetchPriority={index < 2 ? 'high' : 'auto'}
             animate={{ scale: hov ? 1.10 : 1 }}
             transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
             className="w-full h-full object-cover"
