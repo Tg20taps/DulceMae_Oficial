@@ -235,6 +235,10 @@ function formatCheckoutDateHint(value) {
   });
 }
 
+function isCheckoutDateUnavailable(value, minValue) {
+  return Boolean(value && minValue && value < minValue);
+}
+
 function isMobileViewport() {
   return typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
 }
@@ -640,6 +644,7 @@ const CartModal = () => {
   );
   const minCheckoutDate = useMemo(() => getMinCheckoutDate(), []);
   const minCheckoutDateHint = useMemo(() => formatCheckoutDateHint(minCheckoutDate), [minCheckoutDate]);
+  const checkoutDateUnavailable = isCheckoutDateUnavailable(formData.date, minCheckoutDate);
   const orderSummary = useMemo(() => {
     const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
     const productSubtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -742,55 +747,55 @@ const CartModal = () => {
     }
     */
 
-    // 📱 Mensaje WhatsApp — version final limpia para enviar al cliente.
+    // 📱 Mensaje WhatsApp — version final cálida y clara para enviar al cliente.
     const dateFormatted = new Date(payload.customer.delivery_date + 'T12:00:00')
       .toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     const cleanItemLines = payload.items
-      .map(i => `- ${i.quantity}x ${i.name} | ${formatCLP(i.subtotal)}`)
+      .map(i => `🧁 ${i.quantity}x ${i.name} — ${formatCLP(i.subtotal)}`)
       .join('\n');
 
     const deliveryLines = payload.fulfillment.type === 'delivery'
       ? [
-          `Modalidad: Delivery`,
-          `Sector: ${payload.fulfillment.delivery_zone_label}`,
-          `Dirección: ${payload.fulfillment.address}`,
+          `🚚 Modalidad: Delivery`,
+          `📍 Sector: ${payload.fulfillment.delivery_zone_label}`,
+          `🏠 Dirección: ${payload.fulfillment.address}`,
           payload.fulfillment.delivery_fee_known
-            ? `Delivery: ${formatCLP(payload.summary.delivery_fee_clp)}`
-            : `Delivery: por coordinar`,
+            ? `🚗 Delivery: ${formatCLP(payload.summary.delivery_fee_clp)}`
+            : `🚗 Delivery: por coordinar`,
         ]
       : [
-          `Modalidad: Retiro`,
-          `Retiro: coordinar retiro en DulceMae`,
+          `🛍️ Modalidad: Retiro`,
+          `📍 Retiro: coordinar retiro en DulceMae`,
         ];
 
     const totalLine = payload.summary.delivery_fee_pending
-      ? `*Total parcial productos: ${formatCLP(payload.summary.total_clp)}* (delivery por confirmar)`
-      : `*Total estimado: ${formatCLP(payload.summary.total_clp)}*`;
+      ? `✨ *Total parcial productos: ${formatCLP(payload.summary.total_clp)}* (delivery por confirmar)`
+      : `✨ *Total estimado: ${formatCLP(payload.summary.total_clp)}*`;
 
     const finalWhatsAppMessage = [
-      `Hola DulceMae, soy *${payload.customer.name}* y quiero hacer un pedido.`,
+      `¡Hola DulceMae! 💕 Soy *${payload.customer.name}* y quiero hacer un pedido.`,
       ``,
-      `*Pedido*`,
+      `🎂 *Pedido*`,
       cleanItemLines,
       ``,
-      `*Datos del pedido*`,
-      `Teléfono: ${payload.customer.phone}`,
-      `Fecha deseada: ${dateFormatted}`,
-      `Hora preferida: ${payload.customer.preferred_time}`,
+      `📝 *Datos del pedido*`,
+      `📱 Teléfono: ${payload.customer.phone}`,
+      `📅 Fecha deseada: ${dateFormatted}`,
+      `⏰ Hora preferida: ${payload.customer.preferred_time}`,
       ...deliveryLines,
-      `Pago: ${payload.payment.label}`,
-      payload.customer.comments ? `Comentarios: ${payload.customer.comments}` : null,
+      `💳 Pago: ${payload.payment.label}`,
+      payload.customer.comments ? `💬 Comentarios: ${payload.customer.comments}` : null,
       ``,
-      `*Resumen*`,
+      `💰 *Resumen*`,
       `Subtotal productos: ${formatCLP(payload.summary.subtotal_products_clp)}`,
       payload.summary.delivery_fee_clp > 0 ? `Delivery: ${formatCLP(payload.summary.delivery_fee_clp)}` : null,
       totalLine,
       payload.fulfillment.delivery_note ? `_Nota: ${payload.fulfillment.delivery_note}_` : null,
       ``,
-      `Referencia: ${payload.order_id}`,
+      `🧾 Referencia: ${payload.order_id}`,
       ``,
-      `Quedo atenta a su confirmación. Muchas gracias.`,
+      `Quedo atenta a su confirmación. Muchas gracias ✨`,
     ].filter(Boolean).join('\n');
 
     window.open(`https://wa.me/56975562291?text=${encodeURIComponent(finalWhatsAppMessage)}`, '_blank');
@@ -1258,14 +1263,14 @@ const CartModal = () => {
                           Fecha de Entrega
                         </label>
                         <div
-                          className="relative rounded-2xl border px-4 py-3.5 transition-all focus-within:shadow-[0_0_0_3px_rgba(190,24,93,0.10)]"
+                          className="relative rounded-2xl border px-4 py-3 transition-all focus-within:shadow-[0_0_0_3px_rgba(190,24,93,0.10)]"
                           style={{
                             background: 'rgba(255,255,255,0.78)',
-                            borderColor: errors.date ? 'rgba(239,68,68,0.55)' : 'rgba(249,168,212,0.35)',
+                            borderColor: errors.date || checkoutDateUnavailable ? 'rgba(239,68,68,0.58)' : 'rgba(249,168,212,0.35)',
                           }}
                         >
-                          <div className="flex items-start gap-3">
-                            <Calendar className="mt-1 h-4 w-4 shrink-0 text-pink-300" />
+                          <div className="flex min-h-[58px] items-center gap-3">
+                            <Calendar className="h-4 w-4 shrink-0 text-pink-300" />
                             <div className="min-w-0 flex-1">
                               <input
                                 type="date"
@@ -1273,21 +1278,33 @@ const CartModal = () => {
                                 min={minCheckoutDate}
                                 value={formData.date}
                                 onChange={(e) => updateField('date', e.target.value)}
-                                className="h-8 w-full bg-transparent p-0 text-base font-semibold text-[#3f2128] outline-none [color-scheme:light]"
+                                aria-invalid={checkoutDateUnavailable || Boolean(errors.date)}
+                                className="h-7 w-full bg-transparent p-0 text-[15px] font-semibold text-[#3f2128] outline-none [color-scheme:light]"
                               />
-                              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-bold leading-none">
-                                <span className="rounded-full bg-[#be185d]/8 px-2.5 py-1.5 text-[#be185d]/70">
+                              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] font-bold leading-none">
+                                <span
+                                  className="rounded-full px-2.5 py-1.5"
+                                  style={{
+                                    background: checkoutDateUnavailable ? 'rgba(239,68,68,0.10)' : 'rgba(190,24,93,0.08)',
+                                    color: checkoutDateUnavailable ? '#ef4444' : 'rgba(190,24,93,0.70)',
+                                  }}
+                                >
                                   {formData.date ? formatCheckoutDateHint(formData.date) : `Ej. ${minCheckoutDateHint}`}
                                 </span>
-                                <span className="text-[#3f2128]/38">mínimo 48 horas</span>
+                                <span className={checkoutDateUnavailable ? 'text-red-500' : 'text-[#3f2128]/38'}>
+                                  {checkoutDateUnavailable ? 'fecha no disponible' : 'mínimo 48 horas'}
+                                </span>
                               </div>
                             </div>
                           </div>
                         </div>
-                        <p className="text-xs text-[#3f2128]/38 mt-2 ml-1 font-medium leading-snug">
-                          ✦ Los pedidos requieren un mínimo de 48 horas de anticipación.
-                        </p>
-                        {errors.date && (
+                        {checkoutDateUnavailable && (
+                          <p className="mt-2 ml-1 flex items-start gap-1.5 text-xs font-semibold leading-snug text-red-500">
+                            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                            <span>Elige una fecha desde {minCheckoutDateHint}. Necesitamos 48 horas de anticipación.</span>
+                          </p>
+                        )}
+                        {errors.date && !checkoutDateUnavailable && (
                           <p className="mt-2 ml-1 flex items-center gap-1.5 text-xs font-semibold text-red-500">
                             <AlertCircle className="h-3.5 w-3.5" /> {errors.date}
                           </p>
@@ -1298,14 +1315,14 @@ const CartModal = () => {
                           Hora preferida
                         </label>
                         <div
-                          className="relative rounded-2xl border px-4 py-3.5 transition-all focus-within:shadow-[0_0_0_3px_rgba(190,24,93,0.10)]"
+                          className="relative rounded-2xl border px-4 py-3 transition-all focus-within:shadow-[0_0_0_3px_rgba(190,24,93,0.10)]"
                           style={{
                             background: 'rgba(255,255,255,0.78)',
                             borderColor: errors.time ? 'rgba(239,68,68,0.55)' : 'rgba(249,168,212,0.35)',
                           }}
                         >
-                          <div className="flex items-start gap-3">
-                            <Clock3 className="mt-1 h-4 w-4 shrink-0 text-pink-300" />
+                          <div className="flex min-h-[58px] items-center gap-3">
+                            <Clock3 className="h-4 w-4 shrink-0 text-pink-300" />
                             <div className="min-w-0 flex-1">
                               <input
                                 type="time"
@@ -1313,9 +1330,9 @@ const CartModal = () => {
                                 step="900"
                                 value={formData.time}
                                 onChange={(e) => updateField('time', e.target.value)}
-                                className="h-8 w-full bg-transparent p-0 text-base font-semibold text-[#3f2128] outline-none [color-scheme:light]"
+                                className="h-7 w-full bg-transparent p-0 text-[15px] font-semibold text-[#3f2128] outline-none [color-scheme:light]"
                               />
-                              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-bold leading-none">
+                              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] font-bold leading-none">
                                 <span className="rounded-full bg-[#be185d]/8 px-2.5 py-1.5 text-[#be185d]/70">
                                   {formData.time ? `Elegida: ${formData.time}` : 'Ej. 15:30'}
                                 </span>
