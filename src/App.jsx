@@ -14,6 +14,7 @@ import { trackEvent } from './utils/analytics';
 const About = lazy(() => import('./components/About'));
 const Catalog = lazy(() => import('./components/Catalog'));
 const Location = lazy(() => import('./components/Location'));
+const AdminShell = lazy(() => import('./components/admin/AdminShell'));
 
 function BackgroundCanvas() {
   const { currentTheme } = useTheme();
@@ -207,9 +208,17 @@ function AppInterior() {
 }
 
 export default function App() {
+  const isAdminRoute = window.location.pathname.startsWith('/admin');
+
   return (
     <ThemeProvider>
-      <AppInterior />
+      {isAdminRoute ? (
+        <Suspense fallback={<SectionFallback />}>
+          <AdminShell />
+        </Suspense>
+      ) : (
+        <AppInterior />
+      )}
     </ThemeProvider>
   );
 }
