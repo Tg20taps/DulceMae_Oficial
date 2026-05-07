@@ -175,7 +175,39 @@ function formatCLP(n) {
   return `$${n.toLocaleString('es-CL')}`;
 }
 
-const DELIVERY_FEE_CLP = 3500;
+const ALERCE_DELIVERY_FEE_CLP = 3000;
+const PUERTO_MONTT_DELIVERY_FEE_CLP = 5500;
+const DEFAULT_DELIVERY_ZONE = 'alerce_cercano';
+const DELIVERY_ZONES = [
+  {
+    value: DEFAULT_DELIVERY_ZONE,
+    label: 'Alerce cercano',
+    detail: `Suma ${formatCLP(ALERCE_DELIVERY_FEE_CLP)}`,
+    fee: ALERCE_DELIVERY_FEE_CLP,
+    feeKnown: true,
+    note: 'Costo fijo para sectores cercanos de Alerce.',
+  },
+  {
+    value: 'puerto_montt',
+    label: 'Puerto Montt / sectores',
+    detail: `Suma ${formatCLP(PUERTO_MONTT_DELIVERY_FEE_CLP)}`,
+    fee: PUERTO_MONTT_DELIVERY_FEE_CLP,
+    feeKnown: true,
+    note: 'Costo fijo para Puerto Montt y sectores disponibles.',
+  },
+  {
+    value: 'fuera_zona',
+    label: 'Fuera de zona',
+    detail: 'Coordinar disponibilidad',
+    fee: 0,
+    feeKnown: false,
+    note: 'Se coordina disponibilidad y costo antes de confirmar el pedido.',
+  },
+];
+
+function getDeliveryZone(value) {
+  return DELIVERY_ZONES.find(zone => zone.value === value) ?? DELIVERY_ZONES[0];
+}
 
 function formatDateInputValue(date) {
   const year = date.getFullYear();
@@ -212,8 +244,8 @@ function getAtelierPromise(cartItems) {
   const prepDays = Math.ceil(prepHours / 24);
 
   return {
-    window: prepDays <= 2 ? '48h' : `${prepDays} dias`,
-    title: hasSignatureCake ? 'Mesa de decoracion asignada' : 'Tanda artesanal reservada',
+    window: prepDays <= 2 ? '48h' : `${prepDays} días`,
+    title: hasSignatureCake ? 'Mesa de decoración asignada' : 'Tanda artesanal reservada',
     detail: 'Reservamos tiempo real de obrador para que tu pedido salga con textura, empaque y presencia impecables.',
     stages: hasSignatureCake
       ? ['Bizcocho', 'Reposo', 'Decoracion']
@@ -223,7 +255,9 @@ function getAtelierPromise(cartItems) {
 
 function buildOrderPayload(cartItems, productSubtotal, formData) {
   const isDelivery = formData.fulfillment === 'delivery';
-  const deliveryFee = isDelivery ? DELIVERY_FEE_CLP : 0;
+  const deliveryZone = isDelivery ? getDeliveryZone(formData.deliveryZone) : null;
+  const deliveryFee = isDelivery && deliveryZone.feeKnown ? deliveryZone.fee : 0;
+  const deliveryFeePending = isDelivery && !deliveryZone.feeKnown;
   const total = productSubtotal + deliveryFee;
 
   return {
@@ -241,8 +275,11 @@ function buildOrderPayload(cartItems, productSubtotal, formData) {
       type: formData.fulfillment,
       label: isDelivery ? 'Delivery' : 'Retiro',
       address: isDelivery ? formData.address.trim() : '',
+      delivery_zone: deliveryZone?.value ?? '',
+      delivery_zone_label: deliveryZone?.label ?? '',
       delivery_fee_clp: deliveryFee,
-      delivery_note: isDelivery ? 'Costo de delivery estimado. Puede confirmarse segun sector.' : '',
+      delivery_fee_known: !isDelivery || !deliveryFeePending,
+      delivery_note: isDelivery ? deliveryZone.note : '',
     },
     payment: {
       method: formData.paymentMethod,
@@ -259,6 +296,7 @@ function buildOrderPayload(cartItems, productSubtotal, formData) {
       item_count: cartItems.reduce((s, i) => s + i.quantity, 0),
       subtotal_products_clp: productSubtotal,
       delivery_fee_clp: deliveryFee,
+      delivery_fee_pending: deliveryFeePending,
       total_clp: total,
     },
   };
@@ -576,6 +614,7 @@ const CartModal = () => {
     date: '',
     time: '',
     fulfillment: 'pickup',
+    deliveryZone: DEFAULT_DELIVERY_ZONE,
     address: '',
     paymentMethod: 'transfer',
     comments: '',
@@ -591,16 +630,27 @@ const CartModal = () => {
   const orderSummary = useMemo(() => {
     const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
     const productSubtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const deliveryFee = formData.fulfillment === 'delivery' ? DELIVERY_FEE_CLP : 0;
+    const deliveryZone = getDeliveryZone(formData.deliveryZone);
+    const deliveryFee = formData.fulfillment === 'delivery' && deliveryZone.feeKnown ? deliveryZone.fee : 0;
+    const deliveryFeePending = formData.fulfillment === 'delivery' && !deliveryZone.feeKnown;
 
     return {
       itemCount,
       productSubtotal,
+      deliveryZone,
       deliveryFee,
+      deliveryFeePending,
       total: productSubtotal + deliveryFee,
     };
-  }, [cartItems, formData.fulfillment]);
-  const { itemCount, productSubtotal, deliveryFee: checkoutDeliveryFee, total: checkoutTotal } = orderSummary;
+  }, [cartItems, formData.fulfillment, formData.deliveryZone]);
+  const {
+    itemCount,
+    productSubtotal,
+    deliveryZone: checkoutDeliveryZone,
+    deliveryFee: checkoutDeliveryFee,
+    deliveryFeePending: checkoutDeliveryFeePending,
+    total: checkoutTotal,
+  } = orderSummary;
 
   const handleClose = () => {
     closeCart();
@@ -620,11 +670,14 @@ const CartModal = () => {
     if (phoneDigits.length < 8) nextErrors.phone = 'Agrega un teléfono válido para confirmar.';
     if (!formData.date) nextErrors.date = 'Elige una fecha de entrega.';
     if (formData.date && formData.date < minCheckoutDate) {
-      nextErrors.date = 'Elige una fecha con al menos 48 horas de anticipacion.';
+      nextErrors.date = 'Elige una fecha con al menos 48 horas de anticipación.';
     }
     if (!formData.time) nextErrors.time = 'Indica una hora preferida.';
     if (formData.fulfillment === 'delivery' && formData.address.trim().length < 8) {
       nextErrors.address = 'Agrega una dirección clara para confirmar delivery.';
+    }
+    if (formData.fulfillment === 'delivery' && !formData.deliveryZone) {
+      nextErrors.deliveryZone = 'Elige un sector para coordinar el delivery.';
     }
     if (!formData.paymentMethod) nextErrors.paymentMethod = 'Elige transferencia o efectivo.';
 
@@ -649,6 +702,8 @@ const CartModal = () => {
       delivery_date: payload.customer.delivery_date,
       preferred_time: payload.customer.preferred_time,
       fulfillment_type: payload.fulfillment.type,
+      delivery_zone: payload.fulfillment.delivery_zone,
+      delivery_fee_known: payload.fulfillment.delivery_fee_known,
       payment_method: payload.payment.method,
       delivery_fee_clp: payload.summary.delivery_fee_clp,
       item_count: payload.summary.item_count,
@@ -674,61 +729,58 @@ const CartModal = () => {
     }
     */
 
-    // 📱 Mensaje WhatsApp — Estructurado y profesional con emojis
+    // 📱 Mensaje WhatsApp — version final limpia para enviar al cliente.
     const dateFormatted = new Date(payload.customer.delivery_date + 'T12:00:00')
       .toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-    const itemLines = payload.items
-      .map(i => `   🍰 ${i.quantity}x ${i.name} — ${formatCLP(i.subtotal)}`)
+    const cleanItemLines = payload.items
+      .map(i => `- ${i.quantity}x ${i.name} | ${formatCLP(i.subtotal)}`)
       .join('\n');
 
-    const waMessage = [
-      `¡Hola DulceMae! 👋 Me llamo *${payload.customer.name}* y quiero hacer un pedido.`,
-      ``,
-      `📋 *MI PEDIDO:*`,
-      itemLines,
-      ``,
-      `Telefono: ${payload.customer.phone}`,
-      `Hora preferida: ${payload.customer.preferred_time}`,
-      payload.customer.comments ? `Comentarios: ${payload.customer.comments}` : null,
-      ``,
-      `💰 *Total: ${formatCLP(payload.summary.total_clp)}*`,
-      `📅 *Fecha de entrega deseada:* ${dateFormatted}`,
-      ``,
-      `⚡ Referencia: \`${payload.order_id}\``,
-      ``,
-      `Quedo atenta a su confirmación. ¡Muchas gracias! 🎂✨`,
-    ].filter(Boolean).join('\n');
+    const deliveryLines = payload.fulfillment.type === 'delivery'
+      ? [
+          `Modalidad: Delivery`,
+          `Sector: ${payload.fulfillment.delivery_zone_label}`,
+          `Dirección: ${payload.fulfillment.address}`,
+          payload.fulfillment.delivery_fee_known
+            ? `Delivery: ${formatCLP(payload.summary.delivery_fee_clp)}`
+            : `Delivery: por coordinar`,
+        ]
+      : [
+          `Modalidad: Retiro`,
+          `Retiro: coordinar retiro en DulceMae`,
+        ];
 
-    const detailedWaMessage = [
+    const totalLine = payload.summary.delivery_fee_pending
+      ? `*Total parcial productos: ${formatCLP(payload.summary.total_clp)}* (delivery por confirmar)`
+      : `*Total estimado: ${formatCLP(payload.summary.total_clp)}*`;
+
+    const finalWhatsAppMessage = [
       `Hola DulceMae, soy *${payload.customer.name}* y quiero hacer un pedido.`,
       ``,
-      `*MI PEDIDO:*`,
-      itemLines,
+      `*Pedido*`,
+      cleanItemLines,
       ``,
       `*Datos del pedido*`,
-      `Telefono: ${payload.customer.phone}`,
+      `Teléfono: ${payload.customer.phone}`,
       `Fecha deseada: ${dateFormatted}`,
       `Hora preferida: ${payload.customer.preferred_time}`,
-      `Modalidad: ${payload.fulfillment.label}`,
-      payload.fulfillment.type === 'delivery'
-        ? `Direccion: ${payload.fulfillment.address}`
-        : `Retiro: coordinar retiro en DulceMae`,
+      ...deliveryLines,
       `Pago: ${payload.payment.label}`,
       payload.customer.comments ? `Comentarios: ${payload.customer.comments}` : null,
       ``,
       `*Resumen*`,
       `Subtotal productos: ${formatCLP(payload.summary.subtotal_products_clp)}`,
-      payload.summary.delivery_fee_clp > 0 ? `Delivery estimado: ${formatCLP(payload.summary.delivery_fee_clp)}` : null,
-      `*Total estimado: ${formatCLP(payload.summary.total_clp)}*`,
+      payload.summary.delivery_fee_clp > 0 ? `Delivery: ${formatCLP(payload.summary.delivery_fee_clp)}` : null,
+      totalLine,
       payload.fulfillment.delivery_note ? `_Nota: ${payload.fulfillment.delivery_note}_` : null,
       ``,
       `Referencia: ${payload.order_id}`,
       ``,
-      `Quedo atenta a su confirmacion. Muchas gracias.`,
-    ].filter(Boolean).join('\n') || waMessage;
+      `Quedo atenta a su confirmación. Muchas gracias.`,
+    ].filter(Boolean).join('\n');
 
-    window.open(`https://wa.me/56975562291?text=${encodeURIComponent(detailedWaMessage)}`, '_blank');
+    window.open(`https://wa.me/56975562291?text=${encodeURIComponent(finalWhatsAppMessage)}`, '_blank');
   };
 
   function handleUpsellAdd(upsellItem) {
@@ -970,7 +1022,7 @@ const CartModal = () => {
                         }}
                       />
                       <p className="text-xs font-bold tracking-widest uppercase text-[#be185d]/60 mb-1">
-                        Total a pagar
+                        {checkoutDeliveryFeePending ? 'Total parcial' : 'Total a pagar'}
                       </p>
                       <motion.p
                         key={checkoutTotal}
@@ -982,7 +1034,9 @@ const CartModal = () => {
                       </motion.p>
                       <div className="mt-2 space-y-1 text-xs font-medium text-[#3f2128]/48">
                         <p>{itemCount} {itemCount === 1 ? 'producto' : 'productos'} · productos {formatCLP(productSubtotal)}</p>
+                        {formData.fulfillment === 'delivery' && <p>Sector {checkoutDeliveryZone.label}</p>}
                         {checkoutDeliveryFee > 0 && <p>Delivery estimado {formatCLP(checkoutDeliveryFee)}</p>}
+                        {checkoutDeliveryFeePending && <p>Delivery por confirmar según sector</p>}
                       </div>
                     </div>
 
@@ -1056,7 +1110,7 @@ const CartModal = () => {
                         <div className="grid grid-cols-2 gap-2">
                           {[
                             { value: 'pickup', label: 'Retiro', Icon: Home, detail: 'Sin costo' },
-                            { value: 'delivery', label: 'Delivery', Icon: MapPin, detail: `+ ${formatCLP(DELIVERY_FEE_CLP)}` },
+                            { value: 'delivery', label: 'Delivery', Icon: MapPin, detail: `Desde ${formatCLP(ALERCE_DELIVERY_FEE_CLP)}` },
                           ].map(({ value, label, Icon, detail }) => {
                             const active = formData.fulfillment === value;
                             return (
@@ -1081,7 +1135,7 @@ const CartModal = () => {
                         </div>
                         {formData.fulfillment === 'delivery' && (
                           <p className="mt-2 ml-1 text-xs font-medium leading-snug text-[#3f2128]/42">
-                            El delivery queda estimado en {formatCLP(DELIVERY_FEE_CLP)} y se confirma segÃºn sector.
+                            El costo se calcula según el sector elegido antes de enviar el pedido.
                           </p>
                         )}
                       </div>
@@ -1089,7 +1143,45 @@ const CartModal = () => {
                       {formData.fulfillment === 'delivery' && (
                         <div>
                           <label className="block text-sm font-bold text-[#3f2128]/70 mb-2 ml-1">
-                            DirecciÃ³n de entrega
+                            Sector de delivery
+                          </label>
+                          <div className="grid gap-2">
+                            {DELIVERY_ZONES.map(zone => {
+                              const active = formData.deliveryZone === zone.value;
+                              return (
+                                <button
+                                  key={zone.value}
+                                  type="button"
+                                  onClick={() => updateField('deliveryZone', zone.value)}
+                                  className="flex min-h-[54px] items-center justify-between gap-3 rounded-2xl border px-3 py-3 text-left transition"
+                                  style={{
+                                    background: active ? 'rgba(190,24,93,0.10)' : 'rgba(255,255,255,0.70)',
+                                    borderColor: active ? 'rgba(190,24,93,0.42)' : 'rgba(249,168,212,0.32)',
+                                  }}
+                                >
+                                  <span>
+                                    <span className="block text-sm font-bold text-[#3f2128]">{zone.label}</span>
+                                    <span className="mt-0.5 block text-xs font-semibold text-[#3f2128]/45">{zone.note}</span>
+                                  </span>
+                                  <span className="shrink-0 rounded-full bg-white/70 px-3 py-1 text-[11px] font-bold text-[#be185d]">
+                                    {zone.detail}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {errors.deliveryZone && (
+                            <p className="mt-2 ml-1 flex items-center gap-1.5 text-xs font-semibold text-red-500">
+                              <AlertCircle className="h-3.5 w-3.5" /> {errors.deliveryZone}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {formData.fulfillment === 'delivery' && (
+                        <div>
+                          <label className="block text-sm font-bold text-[#3f2128]/70 mb-2 ml-1">
+                            Dirección de entrega
                           </label>
                           <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -1106,7 +1198,7 @@ const CartModal = () => {
                                 border: errors.address ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)',
                                 color: '#3f2128',
                               }}
-                              placeholder="Calle, nÃºmero, sector o referencia"
+                              placeholder="Calle, número, sector o referencia"
                             />
                           </div>
                           {errors.address && (
@@ -1119,7 +1211,7 @@ const CartModal = () => {
 
                       <div>
                         <label className="block text-sm font-bold text-[#3f2128]/70 mb-2 ml-1">
-                          MÃ©todo de pago
+                          Método de pago
                         </label>
                         <div className="grid grid-cols-2 gap-2">
                           {[
