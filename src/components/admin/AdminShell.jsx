@@ -32,6 +32,8 @@ const STATUS_LABELS = {
   cancelled: 'Cancelado',
 };
 
+const STATUS_OPTIONS = Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }));
+
 function formatCLP(value) {
   const numeric = Number(value) || 0;
   return `$${numeric.toLocaleString('es-CL')}`;
@@ -236,7 +238,7 @@ function MetricCard({ label, value, Icon }) {
   );
 }
 
-function OrdersTable({ orders, loading, error, onRefresh }) {
+function OrdersTable({ orders, loading, error, onRefresh, onStatusChange, updatingStatusId }) {
   if (loading) {
     return (
       <div className="flex min-h-[20rem] items-center justify-center rounded-3xl border border-pink-100 bg-white/76">
@@ -281,7 +283,7 @@ function OrdersTable({ orders, loading, error, onRefresh }) {
 
   return (
     <div className="overflow-hidden rounded-3xl border border-pink-100 bg-white/82 shadow-sm backdrop-blur">
-      <div className="grid grid-cols-[1.2fr_1fr_0.8fr_0.7fr] gap-4 border-b border-pink-100 px-5 py-3 text-xs font-bold uppercase tracking-[0.14em] text-[#be185d]/50">
+      <div className="hidden grid-cols-[1.2fr_0.9fr_0.9fr_0.7fr] gap-4 border-b border-pink-100 px-5 py-3 text-xs font-bold uppercase tracking-[0.14em] text-[#be185d]/50 md:grid">
         <span>Cliente</span>
         <span>Fecha</span>
         <span>Estado</span>
@@ -291,16 +293,26 @@ function OrdersTable({ orders, loading, error, onRefresh }) {
         {orders.map(order => {
           const status = getStatus(order);
           return (
-            <article key={order.id ?? order.order_id ?? `${getCustomerName(order)}-${getOrderDate(order)}`} className="grid grid-cols-[1.2fr_1fr_0.8fr_0.7fr] items-center gap-4 px-5 py-4 text-sm">
+            <article
+              key={order.id ?? order.order_id ?? `${getCustomerName(order)}-${getOrderDate(order)}`}
+              className="grid gap-3 px-5 py-4 text-sm md:grid-cols-[1.2fr_0.9fr_0.9fr_0.7fr] md:items-center md:gap-4"
+            >
               <div className="min-w-0">
                 <p className="truncate font-bold text-[#3f2128]">{getCustomerName(order)}</p>
                 <p className="mt-1 truncate text-xs font-semibold text-[#3f2128]/42">{order.order_id ?? order.id ?? 'Pedido sin referencia'}</p>
               </div>
               <p className="font-semibold text-[#3f2128]/62">{getOrderDate(order) ?? 'Sin fecha'}</p>
-              <span className="w-fit rounded-full bg-[#be185d]/10 px-3 py-1 text-xs font-bold text-[#be185d]">
-                {STATUS_LABELS[status] ?? status}
-              </span>
-              <p className="text-right font-serif text-lg font-bold text-[#3f2128]">{formatCLP(getOrderTotal(order))}</p>
+              <select
+                value={status}
+                disabled={!order.id || updatingStatusId === order.id}
+                onChange={(event) => onStatusChange(order, event.target.value)}
+                className="min-h-[40px] rounded-2xl border border-pink-100 bg-[#fff7fb] px-3 py-2 text-xs font-bold text-[#be185d] outline-none transition disabled:opacity-60"
+              >
+                {STATUS_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <p className="font-serif text-lg font-bold text-[#3f2128] md:text-right">{formatCLP(getOrderTotal(order))}</p>
             </article>
           );
         })}
@@ -313,6 +325,8 @@ function Dashboard({ session }) {
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [ordersError, setOrdersError] = useState('');
+  const [statusError, setStatusError] = useState('');
+  const [updatingStatusId, setUpdatingStatusId] = useState(null);
 
   const loadOrders = useCallback(async () => {
     setLoadingOrders(true);
@@ -347,6 +361,27 @@ function Dashboard({ session }) {
 
   async function handleSignOut() {
     await supabase.auth.signOut();
+  }
+
+  async function handleStatusChange(order, nextStatus) {
+    if (!order.id || nextStatus === getStatus(order)) return;
+
+    const previousOrders = orders;
+    setStatusError('');
+    setUpdatingStatusId(order.id);
+    setOrders(prev => prev.map(item => item.id === order.id ? { ...item, status: nextStatus } : item));
+
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: nextStatus })
+      .eq('id', order.id);
+
+    if (error) {
+      setOrders(previousOrders);
+      setStatusError(error.message);
+    }
+
+    setUpdatingStatusId(null);
   }
 
   return (
@@ -404,7 +439,19 @@ function Dashboard({ session }) {
             Actualizar
           </button>
         </div>
-        <OrdersTable orders={orders} loading={loadingOrders} error={ordersError} onRefresh={loadOrders} />
+        {statusError && (
+          <p className="mb-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-500">
+            No se pudo actualizar el estado: {statusError}
+          </p>
+        )}
+        <OrdersTable
+          orders={orders}
+          loading={loadingOrders}
+          error={ordersError}
+          onRefresh={loadOrders}
+          onStatusChange={handleStatusChange}
+          updatingStatusId={updatingStatusId}
+        />
       </section>
     </AdminFrame>
   );

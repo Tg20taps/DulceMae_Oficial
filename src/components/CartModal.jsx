@@ -729,6 +729,30 @@ const CartModal = () => {
       items: payload.items.map(i => ({ id: i.id, name: i.name, qty: i.quantity })),
     });
 
+    void import('../lib/orders')
+      .then(({ saveCheckoutOrder }) => saveCheckoutOrder(payload))
+      .then(result => {
+        trackEvent('checkout_order_store', {
+          order_id: payload.order_id,
+          ok: result.ok,
+          skipped: result.skipped,
+          reason: result.reason,
+        });
+
+        if (!result.ok && !result.skipped) {
+          console.warn('[DulceMae] Supabase order save failed:', result.reason);
+        }
+      })
+      .catch(error => {
+        trackEvent('checkout_order_store', {
+          order_id: payload.order_id,
+          ok: false,
+          skipped: false,
+          reason: error.message,
+        });
+        console.warn('[DulceMae] Supabase order save failed:', error.message);
+      });
+
     // 🔗 Webhook — Activa reemplazando WEBHOOK_URL con tu endpoint Make.com / Zapier
     // Trigger: "Custom Webhook" → "Google Sheets: Add Row" → mapea campos del payload
     /*
