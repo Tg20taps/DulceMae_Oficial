@@ -273,9 +273,9 @@ function formatCheckoutDateHint(value) {
   });
 }
 
-const CHECKOUT_TIME_MIN = '06:00';
-const CHECKOUT_TIME_MAX = '20:45';
-const CHECKOUT_TIME_LABEL = '06:00 a 20:45';
+const CHECKOUT_TIME_MIN = '10:00';
+const CHECKOUT_TIME_MAX = '22:00';
+const CHECKOUT_TIME_LABEL = '10:00 a 22:00';
 
 function isCheckoutDateUnavailable(value, minValue) {
   return Boolean(value && minValue && value < minValue);
@@ -1485,7 +1485,7 @@ const CartModal = () => {
                             required
                             min={CHECKOUT_TIME_MIN}
                             max={CHECKOUT_TIME_MAX}
-                            step="900"
+                            step="60"
                             value={formData.time}
                             onChange={(e) => updateField('time', e.target.value)}
                             onInput={(e) => updateField('time', e.currentTarget.value)}

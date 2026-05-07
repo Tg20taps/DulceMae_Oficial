@@ -284,6 +284,48 @@ Por que mejora el negocio:
 - Ayuda a tomar decisiones.
 - Da base para tu trabajo futuro como cientifico de datos.
 
+## Backlog importante para siguientes fases
+
+Estas ideas quedan registradas para retomarlas por etapas sin sobrecargar el sistema:
+
+### Delivery y calculo de zonas
+
+- Mantener ahora zonas simples: Alerce cercano, Puerto Montt / sectores y fuera de zona.
+- Siguiente version: tabla editable de zonas con nombre, costo, nota y estado activo/inactivo.
+- Version avanzada: calcular costo por distancia o mapa, pero solo cuando el flujo base ya este estable.
+- En delivery, permitir dos modos:
+  - Escribir direccion o pegar link de Google Maps.
+  - Enviar ubicacion directamente desde WhatsApp, dejando el campo libre en el checkout.
+
+### Productos frecuentes y atajos de pedido
+
+- Crear productos editables desde el admin: nombre, categoria, precio, descripcion, foto y disponibilidad.
+- Crear atajos de productos frecuentes para no escribir lo mismo muchas veces.
+- Ejemplos de atajos:
+  - Torta base + tamano + relleno.
+  - Kuchen familiar.
+  - Alfajores x6 / x12.
+  - Insumos o compras recurrentes, si mas adelante se registra inventario.
+- Permitir cantidades rapidas y variantes frecuentes para que tu mama no tenga que repetir datos manualmente.
+
+### Una sola experiencia / un solo link
+
+- Mantener la web publica y el admin dentro del mismo dominio.
+- Usar `/admin` como panel privado, no como segunda pagina separada.
+- Mas adelante evaluar login de clientes dentro del mismo sitio:
+  - Historial de pedidos.
+  - Datos guardados.
+  - Puntos o cupones de descuento.
+  - Recompensas para clientes frecuentes.
+- Esta fase debe venir despues de pedidos, catalogo editable y admin basico, porque requiere datos sensibles y reglas claras.
+
+### Admin para tu mama
+
+- Prioridad mobile-first.
+- Pantallas simples, con acciones grandes y pocas decisiones por vista.
+- Modulo siguiente recomendado: catalogo administrable con fotos y productos.
+- Luego: pedidos manuales para registrar encargos que lleguen directo por WhatsApp.
+
 ## Fase 7 - Automatizacion WhatsApp sin pago online
 
 Meta: ayudar a responder, no reemplazar completamente a tu mama.
