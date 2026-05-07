@@ -29,6 +29,7 @@ Prioridad inmediata:
 - El fix correcto debe resetear todas las policies antiguas de `public.orders` y recrear:
   - Insert publico para checkout.
   - Select/update/delete solo para admin autenticado.
+- El checkout debe insertar con `Prefer: return=minimal`; no debe pedir `return=representation`, porque el cliente anonimo no tiene permiso para leer filas protegidas por RLS.
 - Archivo principal para correr en Supabase SQL Editor: `supabase/fix_orders_access.sql`.
 - Al correrlo, usar Run sobre todo el script, no solo "Run selected" con las consultas de conteo.
 - Despues de correrlo, probar con un pedido nuevo. Los pedidos enviados antes del fix no apareceran porque Supabase los bloqueo.

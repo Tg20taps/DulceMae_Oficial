@@ -47,6 +47,7 @@ claudiamancilla1978@gmail.com
 
 - El checkout abre WhatsApp siempre.
 - Si Supabase esta configurado, guarda el pedido en `orders` usando la API REST de Supabase antes de abrir el mensaje final.
+- La insercion publica usa `Prefer: return=minimal`. Esto es intencional: el cliente anonimo puede crear pedidos, pero no debe leer filas protegidas por RLS.
 - Si Supabase falla o falta la tabla, el cliente no queda bloqueado.
 - `/admin` lee `orders` solo para usuarios autenticados autorizados por RLS.
 - Cancelar un pedido cambia su estado a `cancelled`, guarda motivo y no lo cuenta en ventas visibles.

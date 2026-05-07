@@ -43,9 +43,8 @@ export async function saveCheckoutOrder(payload) {
     method: 'POST',
     headers: {
       apikey: supabaseAnonKey,
-      Authorization: `Bearer ${supabaseAnonKey}`,
       'Content-Type': 'application/json',
-      Prefer: 'return=representation',
+      Prefer: 'return=minimal',
     },
     body: JSON.stringify(buildOrderRecord(payload)),
   });
@@ -55,6 +54,5 @@ export async function saveCheckoutOrder(payload) {
     return { ok: false, skipped: false, reason };
   }
 
-  const rows = await response.json().catch(() => []);
-  return { ok: true, skipped: false, id: rows?.[0]?.id };
+  return { ok: true, skipped: false, id: payload.order_id };
 }
