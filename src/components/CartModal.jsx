@@ -273,8 +273,16 @@ function formatCheckoutDateHint(value) {
   });
 }
 
+const CHECKOUT_TIME_MIN = '06:00';
+const CHECKOUT_TIME_MAX = '20:45';
+const CHECKOUT_TIME_LABEL = '06:00 a 20:45';
+
 function isCheckoutDateUnavailable(value, minValue) {
   return Boolean(value && minValue && value < minValue);
+}
+
+function isCheckoutTimeUnavailable(value) {
+  return Boolean(value && (value < CHECKOUT_TIME_MIN || value > CHECKOUT_TIME_MAX));
 }
 
 function isMobileViewport() {
@@ -314,6 +322,10 @@ function buildOrderPayload(cartItems, productSubtotal, formData) {
   const deliveryFeePending = isDelivery && !deliveryZone.feeKnown;
   const total = productSubtotal + deliveryFee;
   const normalizedPhone = normalizeChileanPhone(formData.phone);
+  const deliveryAddressMode = isDelivery ? formData.deliveryAddressMode : '';
+  const deliveryAddress = isDelivery
+    ? (deliveryAddressMode === 'whatsapp_location' ? '' : formData.address.trim())
+    : '';
 
   return {
     order_id: `DM-${Date.now()}`,
@@ -329,7 +341,9 @@ function buildOrderPayload(cartItems, productSubtotal, formData) {
     fulfillment: {
       type: formData.fulfillment,
       label: isDelivery ? 'Delivery' : 'Retiro',
-      address: isDelivery ? formData.address.trim() : '',
+      address: deliveryAddress,
+      address_mode: deliveryAddressMode,
+      location_url: '',
       delivery_zone: deliveryZone?.value ?? '',
       delivery_zone_label: deliveryZone?.label ?? '',
       delivery_fee_clp: deliveryFee,
@@ -670,12 +684,14 @@ const CartModal = () => {
     time: '',
     fulfillment: 'pickup',
     deliveryZone: DEFAULT_DELIVERY_ZONE,
+    deliveryAddressMode: 'write',
     address: '',
     paymentMethod: 'transfer',
     comments: '',
   });
   const [errors, setErrors] = useState({});
   const [recentlyAdded, setRecentlyAdded] = useState({});
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
 
   const reduceCartMotion = useMemo(
     () => Boolean(prefersReducedMotion || isMobileViewport()),
@@ -684,6 +700,7 @@ const CartModal = () => {
   const minCheckoutDate = useMemo(() => getMinCheckoutDate(), []);
   const minCheckoutDateHint = useMemo(() => formatCheckoutDateHint(minCheckoutDate), [minCheckoutDate]);
   const checkoutDateUnavailable = isCheckoutDateUnavailable(formData.date, minCheckoutDate);
+  const checkoutTimeUnavailable = isCheckoutTimeUnavailable(formData.time);
   const orderSummary = useMemo(() => {
     const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
     const productSubtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -719,6 +736,15 @@ const CartModal = () => {
     setErrors(prev => ({ ...prev, [field]: undefined }));
   };
 
+  const updateDeliveryAddressMode = (mode) => {
+    setFormData(prev => ({
+      ...prev,
+      deliveryAddressMode: mode,
+      address: mode === 'whatsapp_location' ? '' : prev.address,
+    }));
+    setErrors(prev => ({ ...prev, address: undefined, deliveryAddressMode: undefined }));
+  };
+
   const validateCheckout = () => {
     const nextErrors = {};
 
@@ -731,7 +757,14 @@ const CartModal = () => {
       nextErrors.date = 'Elige una fecha con al menos 48 horas de anticipación.';
     }
     if (!formData.time) nextErrors.time = 'Indica una hora preferida.';
-    if (formData.fulfillment === 'delivery' && formData.address.trim().length < 8) {
+    if (formData.time && isCheckoutTimeUnavailable(formData.time)) {
+      nextErrors.time = `Elige una hora entre ${CHECKOUT_TIME_LABEL}.`;
+    }
+    if (
+      formData.fulfillment === 'delivery' &&
+      formData.deliveryAddressMode === 'write' &&
+      formData.address.trim().length < 8
+    ) {
       nextErrors.address = 'Agrega una dirección clara para confirmar delivery.';
     }
     if (formData.fulfillment === 'delivery' && !formData.deliveryZone) {
@@ -749,8 +782,11 @@ const CartModal = () => {
   ─────────────────────────────────────────────────────────── */
   const handleWhatsAppOrder = async (e) => {
     e.preventDefault();
+    if (isSubmittingOrder) return;
     if (!validateCheckout()) return;
 
+    setIsSubmittingOrder(true);
+    const whatsappWindow = window.open('', '_blank');
     const payload = buildOrderPayload(cartItems, productSubtotal, formData);
 
     // 📊 DATA SCIENCE — Click event del botón de finalizar
@@ -823,7 +859,9 @@ const CartModal = () => {
       ? [
           `Modalidad: Delivery`,
           `Sector: ${payload.fulfillment.delivery_zone_label}`,
-          `Dirección / Maps: ${payload.fulfillment.address}`,
+          payload.fulfillment.address_mode === 'whatsapp_location'
+            ? `Ubicación: la enviaré directamente por WhatsApp`
+            : `Dirección / Maps: ${payload.fulfillment.address}`,
           payload.fulfillment.delivery_fee_known
             ? `Delivery: ${formatCLP(payload.summary.delivery_fee_clp)}`
             : `Delivery: por coordinar`,
@@ -872,7 +910,15 @@ const CartModal = () => {
       `Quedo pendiente de su confirmación. Muchas gracias ✨`,
     ].filter(line => line !== null && line !== undefined).join('\n');
 
-    window.open(`https://wa.me/56975562291?text=${encodeURIComponent(finalWhatsAppMessage)}`, '_blank');
+    const whatsappUrl = `https://wa.me/56975562291?text=${encodeURIComponent(finalWhatsAppMessage)}`;
+
+    if (whatsappWindow && !whatsappWindow.closed) {
+      whatsappWindow.location.href = whatsappUrl;
+    } else {
+      window.location.href = whatsappUrl;
+    }
+
+    setIsSubmittingOrder(false);
   };
 
   function handleUpsellAdd(upsellItem) {
@@ -1274,35 +1320,83 @@ const CartModal = () => {
                       )}
 
                       {formData.fulfillment === 'delivery' && (
-                        <div>
-                          <label className="block text-sm font-bold text-[#3f2128]/70 mb-2 ml-1">
-                            Dirección de entrega
-                          </label>
-                          <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                              <MapPin className="w-4 h-4 text-pink-300" />
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-sm font-bold text-[#3f2128]/70 mb-2 ml-1">
+                              Ubicación de entrega
+                            </label>
+                            <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white/40 p-1">
+                              {[
+                                { value: 'write', label: 'Escribir', detail: 'Dirección o Maps', Icon: Home },
+                                { value: 'whatsapp_location', label: 'Enviar por WhatsApp', detail: 'Sin escribir aquí', Icon: MapPin },
+                              ].map(({ value, label, detail, Icon }) => {
+                                const active = formData.deliveryAddressMode === value;
+                                return (
+                                  <button
+                                    key={value}
+                                    type="button"
+                                    onClick={() => updateDeliveryAddressMode(value)}
+                                    className="min-h-[54px] rounded-xl px-3 py-2 text-left transition"
+                                    style={{
+                                      background: active ? 'rgba(190,24,93,0.12)' : 'rgba(255,255,255,0.52)',
+                                      border: active ? '1.5px solid rgba(190,24,93,0.42)' : '1.5px solid rgba(249,168,212,0.22)',
+                                      color: '#3f2128',
+                                    }}
+                                  >
+                                    <span className="flex items-center gap-2 text-xs font-bold">
+                                      <Icon className="h-4 w-4 text-[#be185d]" />
+                                      {label}
+                                    </span>
+                                    <span className="mt-1 block text-[11px] font-semibold text-[#3f2128]/42">
+                                      {detail}
+                                    </span>
+                                  </button>
+                                );
+                              })}
                             </div>
-                            <input
-                              type="text"
-                              required
-                              value={formData.address}
-                              onChange={(e) => updateField('address', e.target.value)}
-                              className="min-h-[48px] w-full pl-11 pr-4 py-3.5 rounded-2xl outline-none transition-all placeholder-gray-400 text-sm font-medium"
-                              style={{
-                                background: 'rgba(255,255,255,0.75)',
-                                border: errors.address ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)',
-                                color: '#3f2128',
-                              }}
-                              placeholder="Calle, número, sector o link de Google Maps"
-                            />
+                            {errors.deliveryAddressMode && (
+                              <p className="mt-2 ml-1 flex items-center gap-1.5 text-xs font-semibold text-red-500">
+                                <AlertCircle className="h-3.5 w-3.5" /> {errors.deliveryAddressMode}
+                              </p>
+                            )}
                           </div>
-                          <p className="mt-2 ml-1 text-xs font-medium leading-snug text-[#3f2128]/42">
-                            Si tienes ubicación de Google Maps, pégala aquí para llegar más fácil.
-                          </p>
-                          {errors.address && (
-                            <p className="mt-2 ml-1 flex items-center gap-1.5 text-xs font-semibold text-red-500">
-                              <AlertCircle className="h-3.5 w-3.5" /> {errors.address}
-                            </p>
+
+                          {formData.deliveryAddressMode === 'write' ? (
+                            <div>
+                              <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                  <MapPin className="w-4 h-4 text-pink-300" />
+                                </div>
+                                <input
+                                  type="text"
+                                  required
+                                  value={formData.address}
+                                  onChange={(e) => updateField('address', e.target.value)}
+                                  className="min-h-[48px] w-full pl-11 pr-4 py-3.5 rounded-2xl outline-none transition-all placeholder-gray-400 text-sm font-medium"
+                                  style={{
+                                    background: 'rgba(255,255,255,0.75)',
+                                    border: errors.address ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)',
+                                    color: '#3f2128',
+                                  }}
+                                  placeholder="Calle, número, sector o link de Google Maps"
+                                />
+                              </div>
+                              <p className="mt-2 ml-1 text-xs font-medium leading-snug text-[#3f2128]/42">
+                                También puedes pegar un link de Google Maps si lo tienes.
+                              </p>
+                              {errors.address && (
+                                <p className="mt-2 ml-1 flex items-center gap-1.5 text-xs font-semibold text-red-500">
+                                  <AlertCircle className="h-3.5 w-3.5" /> {errors.address}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="rounded-2xl border border-pink-100 bg-white/62 px-4 py-3">
+                              <p className="text-xs font-bold text-[#3f2128]">Enviarás la ubicación desde WhatsApp</p>
+                              <p className="mt-1 text-xs font-medium leading-5 text-[#3f2128]/48">
+                                No tienes que escribir dirección aquí. Cuando se abra el chat, usa la opción de WhatsApp para compartir ubicación.
+                              </p>
+                            </div>
                           )}
                         </div>
                       )}
@@ -1389,22 +1483,32 @@ const CartModal = () => {
                           <input
                             type="time"
                             required
+                            min={CHECKOUT_TIME_MIN}
+                            max={CHECKOUT_TIME_MAX}
                             step="900"
                             value={formData.time}
                             onChange={(e) => updateField('time', e.target.value)}
                             onInput={(e) => updateField('time', e.currentTarget.value)}
+                            aria-invalid={checkoutTimeUnavailable || Boolean(errors.time)}
                             className="min-h-[52px] w-full pl-11 pr-4 py-3 rounded-2xl outline-none transition-all text-sm font-bold [color-scheme:light]"
                             style={{
                               background: 'rgba(255,255,255,0.75)',
-                              border: errors.time ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)',
+                              border: errors.time || checkoutTimeUnavailable ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)',
                               color: '#3f2128',
                             }}
                           />
                         </div>
-                        <p className="mt-2 ml-1 text-xs font-semibold leading-snug text-[#3f2128]/38">
-                          Ej. 15:30 · elige una hora aproximada.
-                        </p>
-                        {errors.time && (
+                        {checkoutTimeUnavailable ? (
+                          <p className="mt-2 ml-1 flex items-center gap-1.5 text-xs font-semibold text-red-500">
+                            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                            Horario no disponible. Elige entre {CHECKOUT_TIME_LABEL}.
+                          </p>
+                        ) : (
+                          <p className="mt-2 ml-1 text-xs font-semibold leading-snug text-[#3f2128]/38">
+                            Horario disponible: {CHECKOUT_TIME_LABEL}. Ej. 15:30.
+                          </p>
+                        )}
+                        {errors.time && !checkoutTimeUnavailable && (
                           <p className="mt-2 ml-1 flex items-center gap-1.5 text-xs font-semibold text-red-500">
                             <AlertCircle className="h-3.5 w-3.5" /> {errors.time}
                           </p>
@@ -1571,8 +1675,8 @@ const CartModal = () => {
                       className="absolute inset-0 rounded-2xl pointer-events-none"
                       style={{ background: 'linear-gradient(135deg,#be185d,#e11d72)', filter: 'blur(14px)' }}
                     />
-                    <PrimaryButton variant="pink" type="submit" form="checkout-form">
-                      <span>Pedir por WhatsApp</span>
+                    <PrimaryButton variant="pink" type="submit" form="checkout-form" disabled={isSubmittingOrder}>
+                      <span>{isSubmittingOrder ? 'Preparando pedido...' : 'Pedir por WhatsApp'}</span>
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 00-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                       </svg>
