@@ -53,8 +53,36 @@ function getCustomerName(order) {
   return order?.customer_name ?? order?.customer?.name ?? order?.name ?? 'Cliente sin nombre';
 }
 
+function getCustomerPhone(order) {
+  return order?.customer_phone ?? order?.customer?.phone ?? '';
+}
+
 function getOrderDate(order) {
   return order?.delivery_date ?? order?.customer?.delivery_date ?? order?.created_at ?? null;
+}
+
+function getPreferredTime(order) {
+  return order?.preferred_time ?? order?.customer?.preferred_time ?? '';
+}
+
+function getFulfillmentSummary(order) {
+  const label = order?.fulfillment_label ?? order?.fulfillment?.label ?? '';
+  const zone = order?.delivery_zone_label ?? order?.fulfillment?.delivery_zone_label ?? '';
+  return [label, zone].filter(Boolean).join(' · ');
+}
+
+function getOrderItemsPreview(order) {
+  const items = Array.isArray(order?.items)
+    ? order.items
+    : Array.isArray(order?.payload?.items)
+      ? order.payload.items
+      : [];
+
+  if (!items.length) return 'Sin detalle de productos';
+
+  return items
+    .map(item => `${item.quantity ?? 1}x ${item.name}`)
+    .join(', ');
 }
 
 function getStatus(order) {
@@ -226,14 +254,33 @@ function LoginPanel() {
 
 function MetricCard({ label, value, Icon }) {
   return (
-    <div className="rounded-3xl border border-pink-100 bg-white/78 p-5 shadow-sm backdrop-blur">
+    <div className="rounded-3xl border border-pink-100 bg-white/78 p-3 shadow-sm backdrop-blur sm:p-5">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#be185d]/54">{label}</p>
-        <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#be185d]/10">
-          <Icon className="h-4 w-4 text-[#be185d]" />
+        <p className="text-[10px] font-bold uppercase leading-snug tracking-[0.12em] text-[#be185d]/54 sm:text-xs sm:tracking-[0.16em]">{label}</p>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-[#be185d]/10 sm:h-10 sm:w-10">
+          <Icon className="h-3.5 w-3.5 text-[#be185d] sm:h-4 sm:w-4" />
         </span>
       </div>
-      <p className="mt-4 font-serif text-3xl font-bold text-[#3f2128]">{value}</p>
+      <p className="mt-3 font-serif text-2xl font-bold text-[#3f2128] sm:mt-4 sm:text-3xl">{value}</p>
+    </div>
+  );
+}
+
+function WorkspaceCard({ eyebrow, title, detail, Icon, muted = false }) {
+  return (
+    <div className="rounded-3xl border border-pink-100 bg-white/72 p-4 shadow-sm backdrop-blur sm:p-5">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#be185d]/10">
+          <Icon className="h-4 w-4 text-[#be185d]" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#be185d]/50">{eyebrow}</p>
+          <h3 className="mt-1 text-sm font-bold text-[#3f2128]">{title}</h3>
+          <p className={`mt-1 text-xs font-medium leading-5 ${muted ? 'text-[#3f2128]/42' : 'text-[#3f2128]/58'}`}>
+            {detail}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -275,7 +322,7 @@ function OrdersTable({ orders, loading, error, onRefresh, onStatusChange, updati
         <PackageCheck className="h-9 w-9 text-[#be185d]" />
         <p className="mt-4 font-serif text-2xl font-bold text-[#3f2128]">Sin pedidos todavía</p>
         <p className="mt-2 max-w-md text-sm font-medium leading-6 text-[#3f2128]/52">
-          Cuando conectemos el webhook o la escritura directa a Supabase, los pedidos aparecerán aquí.
+          Los nuevos pedidos aparecerán aquí después de enviarse por WhatsApp. Si acabas de hacer una prueba, espera unos segundos y toca Actualizar.
         </p>
       </div>
     );
@@ -283,9 +330,9 @@ function OrdersTable({ orders, loading, error, onRefresh, onStatusChange, updati
 
   return (
     <div className="overflow-hidden rounded-3xl border border-pink-100 bg-white/82 shadow-sm backdrop-blur">
-      <div className="hidden grid-cols-[1.2fr_0.9fr_0.9fr_0.7fr] gap-4 border-b border-pink-100 px-5 py-3 text-xs font-bold uppercase tracking-[0.14em] text-[#be185d]/50 md:grid">
+      <div className="hidden grid-cols-[1.25fr_1fr_0.85fr_0.65fr] gap-4 border-b border-pink-100 px-5 py-3 text-xs font-bold uppercase tracking-[0.14em] text-[#be185d]/50 md:grid">
         <span>Cliente</span>
-        <span>Fecha</span>
+        <span>Entrega</span>
         <span>Estado</span>
         <span className="text-right">Total</span>
       </div>
@@ -295,13 +342,21 @@ function OrdersTable({ orders, loading, error, onRefresh, onStatusChange, updati
           return (
             <article
               key={order.id ?? order.order_id ?? `${getCustomerName(order)}-${getOrderDate(order)}`}
-              className="grid gap-3 px-5 py-4 text-sm md:grid-cols-[1.2fr_0.9fr_0.9fr_0.7fr] md:items-center md:gap-4"
+              className="grid gap-3 px-5 py-4 text-sm md:grid-cols-[1.25fr_1fr_0.85fr_0.65fr] md:items-center md:gap-4"
             >
               <div className="min-w-0">
                 <p className="truncate font-bold text-[#3f2128]">{getCustomerName(order)}</p>
-                <p className="mt-1 truncate text-xs font-semibold text-[#3f2128]/42">{order.order_id ?? order.id ?? 'Pedido sin referencia'}</p>
+                <p className="mt-1 truncate text-xs font-semibold text-[#3f2128]/50">{getOrderItemsPreview(order)}</p>
+                <p className="mt-1 truncate text-xs font-semibold text-[#3f2128]/38">
+                  {getCustomerPhone(order) || 'Sin teléfono'} · {order.order_id ?? order.id ?? 'Pedido sin referencia'}
+                </p>
               </div>
-              <p className="font-semibold text-[#3f2128]/62">{getOrderDate(order) ?? 'Sin fecha'}</p>
+              <div className="min-w-0">
+                <p className="font-semibold text-[#3f2128]/70">{getOrderDate(order) ?? 'Sin fecha'}</p>
+                <p className="mt-1 truncate text-xs font-semibold text-[#3f2128]/42">
+                  {[getPreferredTime(order), getFulfillmentSummary(order)].filter(Boolean).join(' · ') || 'Sin detalle de entrega'}
+                </p>
+              </div>
               <select
                 value={status}
                 disabled={!order.id || updatingStatusId === order.id}
@@ -386,20 +441,20 @@ function Dashboard({ session }) {
 
   return (
     <AdminFrame>
-      <header className="mb-6 flex flex-col gap-4 rounded-[2rem] border border-white/70 bg-white/72 px-5 py-5 shadow-sm backdrop-blur-xl md:flex-row md:items-center md:justify-between">
+      <header className="mb-5 flex flex-col gap-4 rounded-[2rem] border border-white/70 bg-white/72 px-4 py-4 shadow-sm backdrop-blur-xl sm:px-5 sm:py-5 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#be185d]/10">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#be185d]/10 sm:h-12 sm:w-12">
             <Sparkles className="h-5 w-5 text-[#be185d]" />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#be185d]/60">Panel privado</p>
-            <h1 className="mt-1 font-serif text-3xl font-bold text-[#3f2128]">DulceMae Admin</h1>
+            <h1 className="mt-1 font-serif text-2xl font-bold text-[#3f2128] sm:text-3xl">DulceMae Admin</h1>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <span className="inline-flex items-center gap-2 rounded-2xl border border-pink-100 bg-white px-4 py-2 text-xs font-bold text-[#3f2128]/62">
+          <span className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-pink-100 bg-white px-4 py-2 text-xs font-bold text-[#3f2128]/62">
             <UserRound className="h-4 w-4 text-[#be185d]" />
-            {session.user.email}
+            <span className="truncate">{session.user.email}</span>
           </span>
           <button
             type="button"
@@ -418,7 +473,23 @@ function Dashboard({ session }) {
         </div>
       )}
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="mb-4 grid gap-3 md:grid-cols-2">
+        <WorkspaceCard
+          eyebrow="Pedidos"
+          title="Entrada principal"
+          detail="Aquí se revisan los pedidos nuevos, sus datos y el estado de preparación."
+          Icon={PackageCheck}
+        />
+        <WorkspaceCard
+          eyebrow="Catálogo"
+          title="Productos y fotos"
+          detail="Siguiente módulo: agregar tortas, kuchen, precios y fotos desde el panel."
+          Icon={Sparkles}
+          muted
+        />
+      </section>
+
+      <section className="grid grid-cols-3 gap-2 sm:gap-4">
         <MetricCard label="Pendientes" value={metrics.pending} Icon={Clock3} />
         <MetricCard label="En proceso" value={metrics.confirmed} Icon={PackageCheck} />
         <MetricCard label="Ventas visibles" value={formatCLP(metrics.revenue)} Icon={BarChart3} />

@@ -175,6 +175,44 @@ function formatCLP(n) {
   return `$${n.toLocaleString('es-CL')}`;
 }
 
+function normalizeChileanPhone(value) {
+  const original = String(value || '').trim();
+  const digits = original.replace(/\D/g, '');
+
+  if (!digits) return '';
+
+  let local = digits;
+  if (local.startsWith('0056')) local = local.slice(4);
+  if (local.startsWith('56')) local = local.slice(2);
+  if (local.startsWith('09') && local.length === 10) local = local.slice(1);
+  if (local.length === 8) local = `9${local}`;
+
+  if (local.length === 9 && local.startsWith('9')) {
+    const subscriber = local.slice(1);
+    return `+56 9 ${subscriber.slice(0, 4)} ${subscriber.slice(4)}`;
+  }
+
+  return original;
+}
+
+function isValidChileanMobile(value) {
+  const digits = normalizeChileanPhone(value).replace(/\D/g, '');
+  return digits.length === 11 && digits.startsWith('569');
+}
+
+function getProductMessageEmoji(productName) {
+  const name = String(productName || '').toLowerCase();
+
+  if (name.includes('alfajor')) return '🍪';
+  if (name.includes('kuchen') || name.includes('pie') || name.includes('manzana') || name.includes('nuez')) return '🥧';
+  if (name.includes('cheesecake')) return '🍰';
+  if (name.includes('torta') || name.includes('cake') || name.includes('chocolate') || name.includes('red velvet')) return '🎂';
+  if (name.includes('vela')) return '🕯️';
+  if (name.includes('caja') || name.includes('regalo')) return '🎁';
+
+  return '🍰';
+}
+
 const ALERCE_DELIVERY_FEE_CLP = 3000;
 const PUERTO_MONTT_DELIVERY_FEE_CLP = 5500;
 const DEFAULT_DELIVERY_ZONE = 'alerce_cercano';
@@ -275,6 +313,7 @@ function buildOrderPayload(cartItems, productSubtotal, formData) {
   const deliveryFee = isDelivery && deliveryZone.feeKnown ? deliveryZone.fee : 0;
   const deliveryFeePending = isDelivery && !deliveryZone.feeKnown;
   const total = productSubtotal + deliveryFee;
+  const normalizedPhone = normalizeChileanPhone(formData.phone);
 
   return {
     order_id: `DM-${Date.now()}`,
@@ -282,7 +321,7 @@ function buildOrderPayload(cartItems, productSubtotal, formData) {
     channel: 'whatsapp_web',
     customer: {
       name: formData.name.trim(),
-      phone: formData.phone.trim(),
+      phone: normalizedPhone,
       delivery_date: formData.date,
       preferred_time: formData.time,
       comments: formData.comments.trim(),
@@ -682,10 +721,11 @@ const CartModal = () => {
 
   const validateCheckout = () => {
     const nextErrors = {};
-    const phoneDigits = formData.phone.replace(/\D/g, '');
 
     if (formData.name.trim().length < 3) nextErrors.name = 'Ingresa tu nombre completo.';
-    if (phoneDigits.length < 8) nextErrors.phone = 'Agrega un teléfono válido para confirmar.';
+    if (!isValidChileanMobile(formData.phone)) {
+      nextErrors.phone = 'Ingresa un celular chileno. Ej: 9 7556 2291 o 7556 2291.';
+    }
     if (!formData.date) nextErrors.date = 'Elige una fecha de entrega.';
     if (formData.date && formData.date < minCheckoutDate) {
       nextErrors.date = 'Elige una fecha con al menos 48 horas de anticipación.';
@@ -729,29 +769,29 @@ const CartModal = () => {
       items: payload.items.map(i => ({ id: i.id, name: i.name, qty: i.quantity })),
     });
 
-    void import('../lib/orders')
-      .then(({ saveCheckoutOrder }) => saveCheckoutOrder(payload))
-      .then(result => {
-        trackEvent('checkout_order_store', {
-          order_id: payload.order_id,
-          ok: result.ok,
-          skipped: result.skipped,
-          reason: result.reason,
-        });
+    try {
+      const { saveCheckoutOrder } = await import('../lib/orders');
+      const result = await saveCheckoutOrder(payload);
 
-        if (!result.ok && !result.skipped) {
-          console.warn('[DulceMae] Supabase order save failed:', result.reason);
-        }
-      })
-      .catch(error => {
-        trackEvent('checkout_order_store', {
-          order_id: payload.order_id,
-          ok: false,
-          skipped: false,
-          reason: error.message,
-        });
-        console.warn('[DulceMae] Supabase order save failed:', error.message);
+      trackEvent('checkout_order_store', {
+        order_id: payload.order_id,
+        ok: result.ok,
+        skipped: result.skipped,
+        reason: result.reason,
       });
+
+      if (!result.ok && !result.skipped) {
+        console.warn('[DulceMae] Supabase order save failed:', result.reason);
+      }
+    } catch (error) {
+      trackEvent('checkout_order_store', {
+        order_id: payload.order_id,
+        ok: false,
+        skipped: false,
+        reason: error.message,
+      });
+      console.warn('[DulceMae] Supabase order save failed:', error.message);
+    }
 
     // 🔗 Webhook — Activa reemplazando WEBHOOK_URL con tu endpoint Make.com / Zapier
     // Trigger: "Custom Webhook" → "Google Sheets: Add Row" → mapea campos del payload
@@ -771,56 +811,66 @@ const CartModal = () => {
     }
     */
 
-    // 📱 Mensaje WhatsApp — version final cálida y clara para enviar al cliente.
+    // 📱 Mensaje WhatsApp — versión final cálida, breve y fácil de leer.
     const dateFormatted = new Date(payload.customer.delivery_date + 'T12:00:00')
       .toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     const cleanItemLines = payload.items
-      .map(i => `🧁 ${i.quantity}x ${i.name} — ${formatCLP(i.subtotal)}`)
+      .map(i => `${getProductMessageEmoji(i.name)} ${i.quantity}x ${i.name} — ${formatCLP(i.subtotal)}`)
       .join('\n');
 
     const deliveryLines = payload.fulfillment.type === 'delivery'
       ? [
-          `🚚 Modalidad: Delivery`,
-          `📍 Sector: ${payload.fulfillment.delivery_zone_label}`,
-          `🏠 Dirección: ${payload.fulfillment.address}`,
+          `Modalidad: Delivery`,
+          `Sector: ${payload.fulfillment.delivery_zone_label}`,
+          `Dirección / Maps: ${payload.fulfillment.address}`,
           payload.fulfillment.delivery_fee_known
-            ? `🚗 Delivery: ${formatCLP(payload.summary.delivery_fee_clp)}`
-            : `🚗 Delivery: por coordinar`,
+            ? `Delivery: ${formatCLP(payload.summary.delivery_fee_clp)}`
+            : `Delivery: por coordinar`,
         ]
       : [
-          `🛍️ Modalidad: Retiro`,
-          `📍 Retiro: coordinar retiro en DulceMae`,
+          `Modalidad: Retiro`,
+          `Retiro: coordinar en DulceMae`,
         ];
 
-    const totalLine = payload.summary.delivery_fee_pending
-      ? `✨ *Total parcial productos: ${formatCLP(payload.summary.total_clp)}* (delivery por confirmar)`
-      : `✨ *Total estimado: ${formatCLP(payload.summary.total_clp)}*`;
+    const summaryLines = [
+      payload.fulfillment.type === 'delivery' ? `Productos: ${formatCLP(payload.summary.subtotal_products_clp)}` : null,
+      payload.summary.delivery_fee_clp > 0 ? `Delivery: ${formatCLP(payload.summary.delivery_fee_clp)}` : null,
+      payload.summary.delivery_fee_pending ? `Delivery: por confirmar` : null,
+      payload.summary.delivery_fee_pending
+        ? `*Total parcial: ${formatCLP(payload.summary.total_clp)}*`
+        : `*Total: ${formatCLP(payload.summary.total_clp)}*`,
+    ].filter(Boolean);
 
     const finalWhatsAppMessage = [
-      `¡Hola DulceMae! 💕 Soy *${payload.customer.name}* y quiero hacer un pedido.`,
+      `¡Hola DulceMae! 💕 ¿Cómo están?`,
+      `Soy *${payload.customer.name}* y me gustaría confirmar este pedido artesanal.`,
       ``,
-      `🎂 *Pedido*`,
+      `🧾 *Pedido*`,
       cleanItemLines,
       ``,
-      `📝 *Datos del pedido*`,
-      `📱 Teléfono: ${payload.customer.phone}`,
-      `📅 Fecha deseada: ${dateFormatted}`,
-      `⏰ Hora preferida: ${payload.customer.preferred_time}`,
+      `📅 *Entrega*`,
+      `Fecha: ${dateFormatted}`,
+      `Hora aproximada: ${payload.customer.preferred_time}`,
       ...deliveryLines,
-      `💳 Pago: ${payload.payment.label}`,
-      payload.customer.comments ? `💬 Comentarios: ${payload.customer.comments}` : null,
       ``,
-      `💰 *Resumen*`,
-      `Subtotal productos: ${formatCLP(payload.summary.subtotal_products_clp)}`,
-      payload.summary.delivery_fee_clp > 0 ? `Delivery: ${formatCLP(payload.summary.delivery_fee_clp)}` : null,
-      totalLine,
-      payload.fulfillment.delivery_note ? `_Nota: ${payload.fulfillment.delivery_note}_` : null,
+      `👤 *Contacto*`,
+      `Teléfono: ${payload.customer.phone}`,
       ``,
-      `🧾 Referencia: ${payload.order_id}`,
+      `💳 *Pago*`,
+      payload.payment.label,
+      payload.customer.comments ? `` : null,
+      payload.customer.comments ? `💬 *Comentario*` : null,
+      payload.customer.comments ? payload.customer.comments : null,
       ``,
-      `Quedo atenta a su confirmación. Muchas gracias ✨`,
-    ].filter(Boolean).join('\n');
+      `✨ *Total estimado*`,
+      ...summaryLines,
+      payload.summary.delivery_fee_pending ? `_Se confirma disponibilidad y costo final por WhatsApp._` : null,
+      ``,
+      `Referencia: ${payload.order_id}`,
+      ``,
+      `Quedo pendiente de su confirmación. Muchas gracias ✨`,
+    ].filter(line => line !== null && line !== undefined).join('\n');
 
     window.open(`https://wa.me/56975562291?text=${encodeURIComponent(finalWhatsAppMessage)}`, '_blank');
   };
@@ -1126,16 +1176,19 @@ const CartModal = () => {
                           </div>
                           <input
                             type="tel"
+                            inputMode="tel"
+                            autoComplete="tel"
                             required
                             value={formData.phone}
                             onChange={(e) => updateField('phone', e.target.value)}
+                            onBlur={(e) => updateField('phone', normalizeChileanPhone(e.target.value))}
                             className="min-h-[48px] w-full pl-11 pr-4 py-3.5 rounded-2xl outline-none transition-all placeholder-gray-400 text-sm font-medium"
                             style={{
                               background: 'rgba(255,255,255,0.75)',
                               border: errors.phone ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)',
                               color: '#3f2128',
                             }}
-                            placeholder="+56 9 1234 5678"
+                            placeholder="9 1234 5678 o 1234 5678"
                           />
                         </div>
                         {errors.phone && (
@@ -1240,9 +1293,12 @@ const CartModal = () => {
                                 border: errors.address ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)',
                                 color: '#3f2128',
                               }}
-                              placeholder="Calle, número, sector o referencia"
+                              placeholder="Calle, número, sector o link de Google Maps"
                             />
                           </div>
+                          <p className="mt-2 ml-1 text-xs font-medium leading-snug text-[#3f2128]/42">
+                            Si tienes ubicación de Google Maps, pégala aquí para llegar más fácil.
+                          </p>
                           {errors.address && (
                             <p className="mt-2 ml-1 flex items-center gap-1.5 text-xs font-semibold text-red-500">
                               <AlertCircle className="h-3.5 w-3.5" /> {errors.address}
