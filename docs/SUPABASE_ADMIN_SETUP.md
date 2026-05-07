@@ -7,14 +7,14 @@ En local y Vercel:
 ```text
 VITE_SUPABASE_URL=https://TU_PROYECTO.supabase.co
 VITE_SUPABASE_ANON_KEY=TU_ANON_KEY
-VITE_ADMIN_ALLOWED_EMAILS=correo-admin@ejemplo.cl
+VITE_ADMIN_ALLOWED_EMAILS=claudiamancilla1978@gmail.com
 ```
 
 ## 2. Base de Datos
 
 1. Abre Supabase SQL Editor.
 2. Copia `supabase/orders.sql`.
-3. Verifica que el correo dentro de `public.is_dulcemae_admin()` sea exactamente el correo del admin.
+3. Verifica que el correo dentro de `public.is_dulcemae_admin()` sea exactamente `claudiamancilla1978@gmail.com`.
 4. Ejecuta el script.
 
 Si el panel `/admin` abre bien pero muestra `Sin pedidos todavia` aunque ya se envio un pedido por WhatsApp, corre `supabase/fix_orders_access.sql` en Supabase SQL Editor. Ese archivo actualiza el correo admin de RLS y los permisos de lectura/escritura necesarios.
@@ -25,6 +25,12 @@ En Supabase Auth, crea un usuario con el mismo correo usado en:
 
 - `VITE_ADMIN_ALLOWED_EMAILS`
 - `public.is_dulcemae_admin()` dentro del SQL
+
+Correo admin oficial:
+
+```text
+claudiamancilla1978@gmail.com
+```
 
 ## 4. Flujo Esperado
 
