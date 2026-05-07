@@ -223,6 +223,18 @@ function getMinCheckoutDate() {
   return formatDateInputValue(date);
 }
 
+function formatCheckoutDateHint(value) {
+  if (!value) return '';
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(year, month - 1, day, 12, 0, 0, 0);
+
+  return date.toLocaleDateString('es-CL', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
 function isMobileViewport() {
   return typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
 }
@@ -627,6 +639,7 @@ const CartModal = () => {
     [prefersReducedMotion]
   );
   const minCheckoutDate = useMemo(() => getMinCheckoutDate(), []);
+  const minCheckoutDateHint = useMemo(() => formatCheckoutDateHint(minCheckoutDate), [minCheckoutDate]);
   const orderSummary = useMemo(() => {
     const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
     const productSubtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -1244,25 +1257,32 @@ const CartModal = () => {
                         <label className="block text-sm font-bold text-[#3f2128]/70 mb-2 ml-1">
                           Fecha de Entrega
                         </label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <Calendar className="w-4 h-4 text-pink-300" />
+                        <div
+                          className="relative rounded-2xl border px-4 py-3.5 transition-all focus-within:shadow-[0_0_0_3px_rgba(190,24,93,0.10)]"
+                          style={{
+                            background: 'rgba(255,255,255,0.78)',
+                            borderColor: errors.date ? 'rgba(239,68,68,0.55)' : 'rgba(249,168,212,0.35)',
+                          }}
+                        >
+                          <div className="flex items-start gap-3">
+                            <Calendar className="mt-1 h-4 w-4 shrink-0 text-pink-300" />
+                            <div className="min-w-0 flex-1">
+                              <input
+                                type="date"
+                                required
+                                min={minCheckoutDate}
+                                value={formData.date}
+                                onChange={(e) => updateField('date', e.target.value)}
+                                className="h-8 w-full bg-transparent p-0 text-base font-semibold text-[#3f2128] outline-none [color-scheme:light]"
+                              />
+                              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-bold leading-none">
+                                <span className="rounded-full bg-[#be185d]/8 px-2.5 py-1.5 text-[#be185d]/70">
+                                  {formData.date ? formatCheckoutDateHint(formData.date) : `Ej. ${minCheckoutDateHint}`}
+                                </span>
+                                <span className="text-[#3f2128]/38">mínimo 48 horas</span>
+                              </div>
+                            </div>
                           </div>
-                          <input
-                            type="date"
-                            required
-                            min={minCheckoutDate}
-                            value={formData.date}
-                            onChange={(e) => updateField('date', e.target.value)}
-                            className="min-h-[48px] w-full pl-11 pr-4 py-3.5 rounded-2xl outline-none transition-all text-sm font-medium"
-                            style={{
-                              background: 'rgba(255,255,255,0.75)',
-                              border: errors.date ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)',
-                              color: '#3f2128',
-                            }}
-                            onFocus={(e) => e.target.style.border = '1.5px solid rgba(190,24,93,0.50)'}
-                            onBlur={(e) => e.target.style.border = errors.date ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)'}
-                          />
                         </div>
                         <p className="text-xs text-[#3f2128]/38 mt-2 ml-1 font-medium leading-snug">
                           ✦ Los pedidos requieren un mínimo de 48 horas de anticipación.
@@ -1277,22 +1297,32 @@ const CartModal = () => {
                         <label className="block text-sm font-bold text-[#3f2128]/70 mb-2 ml-1">
                           Hora preferida
                         </label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <Clock3 className="w-4 h-4 text-pink-300" />
+                        <div
+                          className="relative rounded-2xl border px-4 py-3.5 transition-all focus-within:shadow-[0_0_0_3px_rgba(190,24,93,0.10)]"
+                          style={{
+                            background: 'rgba(255,255,255,0.78)',
+                            borderColor: errors.time ? 'rgba(239,68,68,0.55)' : 'rgba(249,168,212,0.35)',
+                          }}
+                        >
+                          <div className="flex items-start gap-3">
+                            <Clock3 className="mt-1 h-4 w-4 shrink-0 text-pink-300" />
+                            <div className="min-w-0 flex-1">
+                              <input
+                                type="time"
+                                required
+                                step="900"
+                                value={formData.time}
+                                onChange={(e) => updateField('time', e.target.value)}
+                                className="h-8 w-full bg-transparent p-0 text-base font-semibold text-[#3f2128] outline-none [color-scheme:light]"
+                              />
+                              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-bold leading-none">
+                                <span className="rounded-full bg-[#be185d]/8 px-2.5 py-1.5 text-[#be185d]/70">
+                                  {formData.time ? `Elegida: ${formData.time}` : 'Ej. 15:30'}
+                                </span>
+                                <span className="text-[#3f2128]/38">elige una hora aproximada</span>
+                              </div>
+                            </div>
                           </div>
-                          <input
-                            type="time"
-                            required
-                            value={formData.time}
-                            onChange={(e) => updateField('time', e.target.value)}
-                            className="min-h-[48px] w-full pl-11 pr-4 py-3.5 rounded-2xl outline-none transition-all text-sm font-medium"
-                            style={{
-                              background: 'rgba(255,255,255,0.75)',
-                              border: errors.time ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)',
-                              color: '#3f2128',
-                            }}
-                          />
                         </div>
                         {errors.time && (
                           <p className="mt-2 ml-1 flex items-center gap-1.5 text-xs font-semibold text-red-500">

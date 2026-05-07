@@ -186,19 +186,22 @@ function AppInterior() {
       <AnimatePresence>
         {showToast && (
           <motion.div
-            initial={{ y: 60, opacity: 0, scale: 0.92 }}
+            initial={{ y: -18, opacity: 0, scale: 0.96, x: '-50%' }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 18, opacity: 0, scale: 0.96 }}
+            exit={{ y: -12, opacity: 0, scale: 0.96 }}
             transition={{ type: 'spring', bounce: 0.35, duration: 0.45 }}
-            className="fixed bottom-28 right-6 z-[240] flex items-center gap-3 rounded-2xl border border-white/35 px-5 py-4 shadow-2xl md:right-10"
-            style={{ background: 'linear-gradient(135deg, #be185d, #e11d72)' }}
+            className="fixed left-1/2 top-24 z-[240] flex w-[calc(100%-2rem)] max-w-sm items-center gap-3 rounded-2xl border border-white/70 px-4 py-3.5 shadow-[0_18px_60px_rgba(190,24,93,0.20)] backdrop-blur-xl"
+            style={{
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.94), rgba(255,241,248,0.88))',
+              color: '#3f2128',
+            }}
           >
-            <span className="rounded-full bg-white/22 p-1.5">
-              <Check className="h-4 w-4 text-white" strokeWidth={3} />
+            <span className="rounded-full bg-[#be185d]/10 p-1.5">
+              <Check className="h-4 w-4 text-[#be185d]" strokeWidth={3} />
             </span>
-            <div>
-              <p className="text-sm font-bold tracking-wide text-white">Anadido al carrito</p>
-              <p className="mt-0.5 text-xs text-white/72">Tu pedido queda guardado.</p>
+            <div className="min-w-0">
+              <p className="text-sm font-bold tracking-wide text-[#3f2128]">Añadido al carrito</p>
+              <p className="mt-0.5 text-xs font-semibold text-[#3f2128]/50">Tu selección quedó guardada.</p>
             </div>
           </motion.div>
         )}
