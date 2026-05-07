@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useMemo, useState } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Minus, Plus, Trash2, Calendar, User, ArrowRight, Sparkles, ChevronLeft, Phone, Clock3, MessageSquare, AlertCircle, MapPin, CreditCard, Home } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { trackEvent } from '../utils/analytics';
@@ -177,6 +177,24 @@ function formatCLP(n) {
 
 const DELIVERY_FEE_CLP = 3500;
 
+function formatDateInputValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getMinCheckoutDate() {
+  const date = new Date();
+  date.setHours(12, 0, 0, 0);
+  date.setDate(date.getDate() + 2);
+  return formatDateInputValue(date);
+}
+
+function isMobileViewport() {
+  return typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
+}
+
 /* ── DATA SCIENCE — Payload builder ──────────────────────────
    Fuente única de verdad para webhook y WhatsApp.
    - created_at ISO 8601 → Sheets lo parsea como fecha nativa
@@ -247,20 +265,20 @@ function buildOrderPayload(cartItems, productSubtotal, formData) {
 }
 
 /* ── Botón cantidad con glow ring al hover ───────────────────── */
-function QtyButton({ onClick, children, label }) {
+function QtyButton({ onClick, children, label, reducedMotion = false }) {
   const [hov, setHov] = useState(false);
   return (
     <motion.button
       whileTap={{ scale: 0.82 }}
-      onHoverStart={() => setHov(true)}
-      onHoverEnd={() => setHov(false)}
-      animate={{
+      onHoverStart={reducedMotion ? undefined : () => setHov(true)}
+      onHoverEnd={reducedMotion ? undefined : () => setHov(false)}
+      animate={reducedMotion ? undefined : {
         scale: hov ? 1.14 : 1,
         boxShadow: hov
           ? '0 0 0 3px rgba(190,24,93,0.22), 0 2px 10px rgba(190,24,93,0.20)'
           : '0 0 0 0px rgba(190,24,93,0)',
       }}
-      transition={{ type: 'spring', stiffness: 420, damping: 22 }}
+      transition={reducedMotion ? { duration: 0.16 } : { type: 'spring', stiffness: 420, damping: 22 }}
       onClick={onClick}
       aria-label={label}
       className="w-8 h-8 rounded-xl flex items-center justify-center"
@@ -277,19 +295,19 @@ function QtyButton({ onClick, children, label }) {
 }
 
 /* ── CartItemRow — Tarjeta de producto con identidad propia ──── */
-function CartItemRow({ item, index, onRemove, onQty }) {
+function CartItemRow({ item, index, onRemove, onQty, reducedMotion = false }) {
   const [hov, setHov] = useState(false);
 
   return (
     <motion.div
-      layout
+      layout={!reducedMotion}
       key={item.id}
-      initial={{ opacity: 0, y: 14 }}
+      initial={reducedMotion ? false : { opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, x: 40, scale: 0.93 }}
-      transition={{ delay: index * 0.05, layout: { type: 'spring', stiffness: 320, damping: 28 } }}
-      onHoverStart={() => setHov(true)}
-      onHoverEnd={() => setHov(false)}
+      exit={reducedMotion ? { opacity: 0 } : { opacity: 0, x: 40, scale: 0.93 }}
+      transition={reducedMotion ? { duration: 0.18 } : { delay: index * 0.05, layout: { type: 'spring', stiffness: 320, damping: 28 } }}
+      onHoverStart={reducedMotion ? undefined : () => setHov(true)}
+      onHoverEnd={reducedMotion ? undefined : () => setHov(false)}
       className="flex gap-4 p-4 rounded-2xl"
       style={{
         background: hov
@@ -307,8 +325,8 @@ function CartItemRow({ item, index, onRemove, onQty }) {
     >
       {/* Imagen / Emoji con lift sutil al hover */}
       <motion.div
-        animate={{ scale: hov ? 1.05 : 1, rotate: hov ? -2 : 0 }}
-        transition={{ type: 'spring', stiffness: 340, damping: 22 }}
+        animate={reducedMotion ? undefined : { scale: hov ? 1.05 : 1, rotate: hov ? -2 : 0 }}
+        transition={reducedMotion ? { duration: 0.16 } : { type: 'spring', stiffness: 340, damping: 22 }}
         className="shrink-0"
       >
         {item.image ? (
@@ -352,31 +370,37 @@ function CartItemRow({ item, index, onRemove, onQty }) {
         <div className="flex justify-between items-center mt-3">
           {/* ── Precio con Digit Flip — split-flap display ── */}
           <div className="flex items-center gap-0.5 tabular-nums" aria-label={formatCLP(item.price * item.quantity)}>
-            {formatCLP(item.price * item.quantity).split('').map((char, ci) => (
-              <div
-                key={ci}
-                style={{ position: 'relative', overflow: 'hidden', height: '1.4em', minWidth: char === '.' || char === ',' ? '0.35em' : '0.6em' }}
-              >
-                <AnimatePresence mode="popLayout" initial={false}>
-                  <motion.span
-                    key={`${ci}-${char}`}
-                    initial={{ y: '-100%', opacity: 0 }}
-                    animate={{ y: '0%', opacity: 1 }}
-                    exit={{ y: '100%', opacity: 0 }}
-                    transition={{ type: 'spring', stiffness: 380, damping: 28, mass: 0.6 }}
-                    style={{
-                      display: 'block',
-                      fontWeight: 700,
-                      fontSize: '1rem',
-                      color: '#be185d',
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {char}
-                  </motion.span>
-                </AnimatePresence>
-              </div>
-            ))}
+            {reducedMotion ? (
+              <span className="text-base font-bold leading-[1.4] text-[#be185d]">
+                {formatCLP(item.price * item.quantity)}
+              </span>
+            ) : (
+              formatCLP(item.price * item.quantity).split('').map((char, ci) => (
+                <div
+                  key={ci}
+                  style={{ position: 'relative', overflow: 'hidden', height: '1.4em', minWidth: char === '.' || char === ',' ? '0.35em' : '0.6em' }}
+                >
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    <motion.span
+                      key={`${ci}-${char}`}
+                      initial={{ y: '-100%', opacity: 0 }}
+                      animate={{ y: '0%', opacity: 1 }}
+                      exit={{ y: '100%', opacity: 0 }}
+                      transition={{ type: 'spring', stiffness: 380, damping: 28, mass: 0.6 }}
+                      style={{
+                        display: 'block',
+                        fontWeight: 700,
+                        fontSize: '1rem',
+                        color: '#be185d',
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {char}
+                    </motion.span>
+                  </AnimatePresence>
+                </div>
+              ))
+            )}
           </div>
 
           {/* Controles Qty */}
@@ -390,28 +414,36 @@ function CartItemRow({ item, index, onRemove, onQty }) {
             <QtyButton
               onClick={() => onQty(item.id, item.quantity - 1)}
               label="Reducir cantidad"
+              reducedMotion={reducedMotion}
             >
               <Minus className="w-3 h-3" />
             </QtyButton>
 
             {/* Número con rebote al cambiar */}
-            <AnimatePresence mode="popLayout">
-              <motion.span
-                key={item.quantity}
-                initial={{ scale: 1.4, opacity: 0, y: -6 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.7, opacity: 0, y: 6 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 22 }}
-                className="text-sm font-bold w-5 text-center tabular-nums"
-                style={{ color: '#3f2128' }}
-              >
+            {reducedMotion ? (
+              <span className="w-5 text-center text-sm font-bold tabular-nums text-[#3f2128]">
                 {item.quantity}
-              </motion.span>
-            </AnimatePresence>
+              </span>
+            ) : (
+              <AnimatePresence mode="popLayout">
+                <motion.span
+                  key={item.quantity}
+                  initial={{ scale: 1.4, opacity: 0, y: -6 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.7, opacity: 0, y: 6 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+                  className="text-sm font-bold w-5 text-center tabular-nums"
+                  style={{ color: '#3f2128' }}
+                >
+                  {item.quantity}
+                </motion.span>
+              </AnimatePresence>
+            )}
 
             <QtyButton
               onClick={() => onQty(item.id, item.quantity + 1)}
               label="Aumentar cantidad"
+              reducedMotion={reducedMotion}
             >
               <Plus className="w-3 h-3" />
             </QtyButton>
@@ -423,14 +455,14 @@ function CartItemRow({ item, index, onRemove, onQty }) {
 }
 
 /* ── Upsell Card ─────────────────────────────────────────────── */
-function UpsellCard({ item, onAdd, added }) {
+function UpsellCard({ item, onAdd, added, reducedMotion = false }) {
   const [hovered, setHovered] = useState(false);
   return (
     <motion.div
-      onHoverStart={() => setHovered(true)}
-      onHoverEnd={() => setHovered(false)}
-      animate={{ scale: hovered ? 1.02 : 1, y: hovered ? -2 : 0 }}
-      transition={{ type: 'spring', stiffness: 380, damping: 26 }}
+      onHoverStart={reducedMotion ? undefined : () => setHovered(true)}
+      onHoverEnd={reducedMotion ? undefined : () => setHovered(false)}
+      animate={reducedMotion ? undefined : { scale: hovered ? 1.02 : 1, y: hovered ? -2 : 0 }}
+      transition={reducedMotion ? { duration: 0.16 } : { type: 'spring', stiffness: 380, damping: 26 }}
       className="relative flex items-center gap-3 p-3.5 rounded-2xl"
       style={{
         background: `linear-gradient(135deg, ${item.gradientFrom}, ${item.gradientTo})`,
@@ -534,8 +566,8 @@ const CartModal = () => {
   const {
     isCartOpen, closeCart,
     cartItems, addToCart, updateQuantity, removeItem,
-    cartTotal,
   } = useCart();
+  const prefersReducedMotion = useReducedMotion();
 
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -551,15 +583,24 @@ const CartModal = () => {
   const [errors, setErrors] = useState({});
   const [recentlyAdded, setRecentlyAdded] = useState({});
 
-  const itemCount = cartItems.reduce((s, i) => s + i.quantity, 0);
-  const checkoutDeliveryFee = formData.fulfillment === 'delivery' ? DELIVERY_FEE_CLP : 0;
-  const checkoutTotal = cartTotal + checkoutDeliveryFee;
+  const reduceCartMotion = useMemo(
+    () => Boolean(prefersReducedMotion || isMobileViewport()),
+    [prefersReducedMotion]
+  );
+  const minCheckoutDate = useMemo(() => getMinCheckoutDate(), []);
+  const orderSummary = useMemo(() => {
+    const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+    const productSubtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const deliveryFee = formData.fulfillment === 'delivery' ? DELIVERY_FEE_CLP : 0;
 
-  const getMinDate = () => {
-    const d = new Date();
-    d.setDate(d.getDate() + 2);
-    return d.toISOString().split('T')[0];
-  };
+    return {
+      itemCount,
+      productSubtotal,
+      deliveryFee,
+      total: productSubtotal + deliveryFee,
+    };
+  }, [cartItems, formData.fulfillment]);
+  const { itemCount, productSubtotal, deliveryFee: checkoutDeliveryFee, total: checkoutTotal } = orderSummary;
 
   const handleClose = () => {
     closeCart();
@@ -578,6 +619,9 @@ const CartModal = () => {
     if (formData.name.trim().length < 3) nextErrors.name = 'Ingresa tu nombre completo.';
     if (phoneDigits.length < 8) nextErrors.phone = 'Agrega un teléfono válido para confirmar.';
     if (!formData.date) nextErrors.date = 'Elige una fecha de entrega.';
+    if (formData.date && formData.date < minCheckoutDate) {
+      nextErrors.date = 'Elige una fecha con al menos 48 horas de anticipacion.';
+    }
     if (!formData.time) nextErrors.time = 'Indica una hora preferida.';
     if (formData.fulfillment === 'delivery' && formData.address.trim().length < 8) {
       nextErrors.address = 'Agrega una dirección clara para confirmar delivery.';
@@ -596,7 +640,7 @@ const CartModal = () => {
     e.preventDefault();
     if (!validateCheckout()) return;
 
-    const payload = buildOrderPayload(cartItems, cartTotal, formData);
+    const payload = buildOrderPayload(cartItems, productSubtotal, formData);
 
     // 📊 DATA SCIENCE — Click event del botón de finalizar
     trackEvent('checkout_complete', {
@@ -702,8 +746,14 @@ const CartModal = () => {
     trackEvent('upsell_added', { item_id: upsellItem.id, item_name: upsellItem.name, price: upsellItem.price });
   }
 
-  const visibleUpsells = UPSELL_ITEMS.filter(u => !cartItems.find(i => i.id === u.id));
-  const atelierPromise = cartItems.length > 0 ? getAtelierPromise(cartItems) : null;
+  const visibleUpsells = useMemo(
+    () => UPSELL_ITEMS.filter(u => !cartItems.some(i => i.id === u.id)),
+    [cartItems]
+  );
+  const atelierPromise = useMemo(
+    () => (cartItems.length > 0 ? getAtelierPromise(cartItems) : null),
+    [cartItems]
+  );
 
   return (
     <AnimatePresence>
@@ -859,6 +909,7 @@ const CartModal = () => {
                           index={index}
                           onRemove={removeItem}
                           onQty={updateQuantity}
+                          reducedMotion={reduceCartMotion}
                         />
                       ))}
                     </div>
@@ -886,7 +937,7 @@ const CartModal = () => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.18 + i * 0.07 }}
                           >
-                            <UpsellCard item={item} onAdd={handleUpsellAdd} added={!!recentlyAdded[item.id]} />
+                            <UpsellCard item={item} onAdd={handleUpsellAdd} added={!!recentlyAdded[item.id]} reducedMotion={reduceCartMotion} />
                           </motion.div>
                         ))}
                       </div>
@@ -930,7 +981,7 @@ const CartModal = () => {
                         {formatCLP(checkoutTotal)}
                       </motion.p>
                       <div className="mt-2 space-y-1 text-xs font-medium text-[#3f2128]/48">
-                        <p>{itemCount} {itemCount === 1 ? 'producto' : 'productos'} · productos {formatCLP(cartTotal)}</p>
+                        <p>{itemCount} {itemCount === 1 ? 'producto' : 'productos'} · productos {formatCLP(productSubtotal)}</p>
                         {checkoutDeliveryFee > 0 && <p>Delivery estimado {formatCLP(checkoutDeliveryFee)}</p>}
                       </div>
                     </div>
@@ -951,7 +1002,7 @@ const CartModal = () => {
                             required
                             value={formData.name}
                             onChange={(e) => updateField('name', e.target.value)}
-                            className="w-full pl-11 pr-4 py-3.5 rounded-2xl outline-none transition-all placeholder-gray-400 text-sm font-medium"
+                            className="min-h-[48px] w-full pl-11 pr-4 py-3.5 rounded-2xl outline-none transition-all placeholder-gray-400 text-sm font-medium"
                             style={{
                               background: 'rgba(255,255,255,0.75)',
                               border: '1.5px solid rgba(249,168,212,0.35)',
@@ -982,7 +1033,7 @@ const CartModal = () => {
                             required
                             value={formData.phone}
                             onChange={(e) => updateField('phone', e.target.value)}
-                            className="w-full pl-11 pr-4 py-3.5 rounded-2xl outline-none transition-all placeholder-gray-400 text-sm font-medium"
+                            className="min-h-[48px] w-full pl-11 pr-4 py-3.5 rounded-2xl outline-none transition-all placeholder-gray-400 text-sm font-medium"
                             style={{
                               background: 'rgba(255,255,255,0.75)',
                               border: errors.phone ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)',
@@ -1013,7 +1064,7 @@ const CartModal = () => {
                                 key={value}
                                 type="button"
                                 onClick={() => updateField('fulfillment', value)}
-                                className="rounded-2xl border px-3 py-3 text-left transition"
+                                className="min-h-[54px] rounded-2xl border px-3 py-3 text-left transition"
                                 style={{
                                   background: active ? 'rgba(190,24,93,0.10)' : 'rgba(255,255,255,0.70)',
                                   borderColor: active ? 'rgba(190,24,93,0.42)' : 'rgba(249,168,212,0.32)',
@@ -1049,7 +1100,7 @@ const CartModal = () => {
                               required
                               value={formData.address}
                               onChange={(e) => updateField('address', e.target.value)}
-                              className="w-full pl-11 pr-4 py-3.5 rounded-2xl outline-none transition-all placeholder-gray-400 text-sm font-medium"
+                              className="min-h-[48px] w-full pl-11 pr-4 py-3.5 rounded-2xl outline-none transition-all placeholder-gray-400 text-sm font-medium"
                               style={{
                                 background: 'rgba(255,255,255,0.75)',
                                 border: errors.address ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)',
@@ -1081,7 +1132,7 @@ const CartModal = () => {
                                 key={value}
                                 type="button"
                                 onClick={() => updateField('paymentMethod', value)}
-                                className="flex items-center gap-2 rounded-2xl border px-3 py-3 text-sm font-bold transition"
+                                className="flex min-h-[52px] items-center gap-2 rounded-2xl border px-3 py-3 text-sm font-bold transition"
                                 style={{
                                   background: active ? 'rgba(190,24,93,0.10)' : 'rgba(255,255,255,0.70)',
                                   borderColor: active ? 'rgba(190,24,93,0.42)' : 'rgba(249,168,212,0.32)',
@@ -1108,22 +1159,27 @@ const CartModal = () => {
                           <input
                             type="date"
                             required
-                            min={getMinDate()}
+                            min={minCheckoutDate}
                             value={formData.date}
                             onChange={(e) => updateField('date', e.target.value)}
-                            className="w-full pl-11 pr-4 py-3.5 rounded-2xl outline-none transition-all text-sm font-medium"
+                            className="min-h-[48px] w-full pl-11 pr-4 py-3.5 rounded-2xl outline-none transition-all text-sm font-medium"
                             style={{
                               background: 'rgba(255,255,255,0.75)',
-                              border: '1.5px solid rgba(249,168,212,0.35)',
+                              border: errors.date ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)',
                               color: '#3f2128',
                             }}
                             onFocus={(e) => e.target.style.border = '1.5px solid rgba(190,24,93,0.50)'}
-                            onBlur={(e) => e.target.style.border = '1.5px solid rgba(249,168,212,0.35)'}
+                            onBlur={(e) => e.target.style.border = errors.date ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)'}
                           />
                         </div>
                         <p className="text-xs text-[#3f2128]/38 mt-2 ml-1 font-medium leading-snug">
                           ✦ Los pedidos requieren un mínimo de 48 horas de anticipación.
                         </p>
+                        {errors.date && (
+                          <p className="mt-2 ml-1 flex items-center gap-1.5 text-xs font-semibold text-red-500">
+                            <AlertCircle className="h-3.5 w-3.5" /> {errors.date}
+                          </p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-bold text-[#3f2128]/70 mb-2 ml-1">
@@ -1138,7 +1194,7 @@ const CartModal = () => {
                             required
                             value={formData.time}
                             onChange={(e) => updateField('time', e.target.value)}
-                            className="w-full pl-11 pr-4 py-3.5 rounded-2xl outline-none transition-all text-sm font-medium"
+                            className="min-h-[48px] w-full pl-11 pr-4 py-3.5 rounded-2xl outline-none transition-all text-sm font-medium"
                             style={{
                               background: 'rgba(255,255,255,0.75)',
                               border: errors.time ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)',
@@ -1207,13 +1263,13 @@ const CartModal = () => {
                       <span className="font-serif text-lg font-bold text-[#3f2128]">Tu pedido</span>
                     </div>
                     <motion.span
-                      key={cartTotal}
+                      key={productSubtotal}
                       initial={{ scale: 1.18, color: '#f472b6', y: -4 }}
                       animate={{ scale: 1, color: '#be185d', y: 0 }}
                       transition={{ type: 'spring', stiffness: 420, damping: 18 }}
                       className="font-serif text-2xl font-bold tabular-nums"
                     >
-                      {formatCLP(cartTotal)}
+                      {formatCLP(productSubtotal)}
                     </motion.span>
                   </div>
 

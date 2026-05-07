@@ -12,6 +12,10 @@ const NAV_LINKS = [
 ];
 
 function scrollTo(href) {
+  if (href === '#inicio') {
+    return window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   const el = document.getElementById(href.replace('#', ''));
   if (!el) return window.scrollTo({ top: 0, behavior: 'smooth' });
   window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 72, behavior: 'smooth' });
@@ -83,7 +87,7 @@ export default function Header() {
   return (
     <>
       <motion.header
-        className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center pt-3 md:pt-4"
+        className="pointer-events-none fixed inset-x-0 top-0 z-[900] flex justify-center pt-3 md:pt-4"
         initial={{ opacity: 0, y: -24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
@@ -167,7 +171,7 @@ export default function Header() {
       <AnimatePresence>
         {menuOpen && (
           <motion.div
-            className="fixed inset-0 z-[200] flex flex-col"
+            className="fixed inset-0 z-[950] flex flex-col"
             initial={{ opacity: 0, scale: 1.03, filter: 'blur(10px)' }}
             animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
             exit={{ opacity: 0, scale: 1.02, filter: 'blur(8px)' }}
