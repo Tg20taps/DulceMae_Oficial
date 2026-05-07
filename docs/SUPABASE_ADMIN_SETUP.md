@@ -19,6 +19,15 @@ VITE_ADMIN_ALLOWED_EMAILS=claudiamancilla1978@gmail.com
 
 Si el panel `/admin` abre bien pero muestra `Sin pedidos todavia` aunque ya se envio un pedido por WhatsApp, corre `supabase/fix_orders_access.sql` en Supabase SQL Editor. Ese archivo actualiza el correo admin de RLS y los permisos de lectura/escritura necesarios.
 
+El mismo script tambien agrega los campos de cancelacion:
+
+- `cancel_reason`
+- `cancel_reason_label`
+- `cancel_note`
+- `cancelled_at`
+
+Con eso el admin puede marcar pedidos como cancelados sin borrarlos y conservar motivos utiles para analisis.
+
 ## 3. Usuario Admin
 
 En Supabase Auth, crea un usuario con el mismo correo usado en:
@@ -38,6 +47,7 @@ claudiamancilla1978@gmail.com
 - Si Supabase esta configurado, guarda el pedido en `orders` usando la API REST de Supabase antes de abrir el mensaje final.
 - Si Supabase falla o falta la tabla, el cliente no queda bloqueado.
 - `/admin` lee `orders` solo para usuarios autenticados autorizados por RLS.
+- Cancelar un pedido cambia su estado a `cancelled`, guarda motivo y no lo cuenta en ventas visibles.
 
 ## 5. Diagnostico Rapido
 

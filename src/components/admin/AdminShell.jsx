@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import {
   AlertCircle,
   BarChart3,
+  Ban,
   CheckCircle2,
   Clock3,
   Eye,
@@ -33,6 +34,48 @@ const STATUS_LABELS = {
 };
 
 const STATUS_OPTIONS = Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }));
+
+const CANCELLATION_REASONS = [
+  {
+    value: 'test_order',
+    label: 'Pedido de prueba',
+    detail: 'Para pedidos ficticios o pruebas internas.',
+  },
+  {
+    value: 'client_not_confirmed',
+    label: 'Cliente no confirmo',
+    detail: 'Se pidio confirmacion y no hubo respuesta.',
+  },
+  {
+    value: 'out_of_zone',
+    label: 'Fuera de zona',
+    detail: 'La entrega no estaba disponible para ese sector.',
+  },
+  {
+    value: 'no_availability',
+    label: 'Sin disponibilidad',
+    detail: 'No habia cupo para la fecha u hora solicitada.',
+  },
+  {
+    value: 'product_unavailable',
+    label: 'Producto no disponible',
+    detail: 'Faltaba stock, ingrediente o preparacion posible.',
+  },
+  {
+    value: 'duplicate',
+    label: 'Pedido duplicado',
+    detail: 'Ya existia otro pedido igual o corregido.',
+  },
+  {
+    value: 'other',
+    label: 'Otro motivo',
+    detail: 'Usar nota para dejar contexto.',
+  },
+];
+
+const CANCELLATION_REASON_LABELS = Object.fromEntries(
+  CANCELLATION_REASONS.map(reason => [reason.value, reason.label])
+);
 
 function formatCLP(value) {
   const numeric = Number(value) || 0;
@@ -87,6 +130,11 @@ function getOrderItemsPreview(order) {
 
 function getStatus(order) {
   return order?.status ?? order?.order_status ?? 'pending';
+}
+
+function getCancellationReason(order) {
+  const reason = order?.cancel_reason ?? order?.cancellation_reason ?? '';
+  return order?.cancel_reason_label ?? CANCELLATION_REASON_LABELS[reason] ?? '';
 }
 
 function AdminFrame({ children }) {
@@ -285,7 +333,16 @@ function WorkspaceCard({ eyebrow, title, detail, Icon, muted = false }) {
   );
 }
 
-function OrdersTable({ orders, loading, error, onRefresh, onStatusChange, updatingStatusId }) {
+function OrdersTable({
+  orders,
+  loading,
+  error,
+  onRefresh,
+  onStatusChange,
+  onRequestCancel,
+  updatingStatusId,
+  cancellingOrderId,
+}) {
   if (loading) {
     return (
       <div className="flex min-h-[20rem] items-center justify-center rounded-3xl border border-pink-100 bg-white/76">
@@ -350,6 +407,11 @@ function OrdersTable({ orders, loading, error, onRefresh, onStatusChange, updati
                 <p className="mt-1 truncate text-xs font-semibold text-[#3f2128]/38">
                   {getCustomerPhone(order) || 'Sin teléfono'} · {order.order_id ?? order.id ?? 'Pedido sin referencia'}
                 </p>
+                {status === 'cancelled' && getCancellationReason(order) && (
+                  <p className="mt-2 inline-flex max-w-full rounded-full bg-red-50 px-3 py-1 text-[11px] font-bold text-red-500">
+                    Cancelado: {getCancellationReason(order)}
+                  </p>
+                )}
               </div>
               <div className="min-w-0">
                 <p className="font-semibold text-[#3f2128]/70">{getOrderDate(order) ?? 'Sin fecha'}</p>
@@ -357,16 +419,29 @@ function OrdersTable({ orders, loading, error, onRefresh, onStatusChange, updati
                   {[getPreferredTime(order), getFulfillmentSummary(order)].filter(Boolean).join(' · ') || 'Sin detalle de entrega'}
                 </p>
               </div>
-              <select
-                value={status}
-                disabled={!order.id || updatingStatusId === order.id}
-                onChange={(event) => onStatusChange(order, event.target.value)}
-                className="min-h-[40px] rounded-2xl border border-pink-100 bg-[#fff7fb] px-3 py-2 text-xs font-bold text-[#be185d] outline-none transition disabled:opacity-60"
-              >
-                {STATUS_OPTIONS.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
+              <div className="grid gap-2">
+                <select
+                  value={status}
+                  disabled={!order.id || updatingStatusId === order.id || cancellingOrderId === order.id}
+                  onChange={(event) => onStatusChange(order, event.target.value)}
+                  className="min-h-[40px] rounded-2xl border border-pink-100 bg-[#fff7fb] px-3 py-2 text-xs font-bold text-[#be185d] outline-none transition disabled:opacity-60"
+                >
+                  {STATUS_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                {status !== 'cancelled' && status !== 'delivered' && (
+                  <button
+                    type="button"
+                    disabled={!order.id || cancellingOrderId === order.id}
+                    onClick={() => onRequestCancel(order)}
+                    className="inline-flex min-h-[36px] items-center justify-center gap-2 rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-bold text-red-500 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {cancellingOrderId === order.id ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Ban className="h-3.5 w-3.5" />}
+                    Cancelar
+                  </button>
+                )}
+              </div>
               <p className="font-serif text-lg font-bold text-[#3f2128] md:text-right">{formatCLP(getOrderTotal(order))}</p>
             </article>
           );
@@ -382,6 +457,9 @@ function Dashboard({ session }) {
   const [ordersError, setOrdersError] = useState('');
   const [statusError, setStatusError] = useState('');
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
+  const [cancellingOrderId, setCancellingOrderId] = useState(null);
+  const [cancelDraft, setCancelDraft] = useState(null);
+  const [cancelError, setCancelError] = useState('');
 
   const loadOrders = useCallback(async () => {
     setLoadingOrders(true);
@@ -410,7 +488,9 @@ function Dashboard({ session }) {
   const metrics = useMemo(() => {
     const pending = orders.filter(order => getStatus(order) === 'pending').length;
     const confirmed = orders.filter(order => ['confirmed', 'preparing', 'ready'].includes(getStatus(order))).length;
-    const revenue = orders.reduce((sum, order) => sum + Number(getOrderTotal(order) || 0), 0);
+    const revenue = orders
+      .filter(order => getStatus(order) !== 'cancelled')
+      .reduce((sum, order) => sum + Number(getOrderTotal(order) || 0), 0);
     return { pending, confirmed, revenue };
   }, [orders]);
 
@@ -420,6 +500,10 @@ function Dashboard({ session }) {
 
   async function handleStatusChange(order, nextStatus) {
     if (!order.id || nextStatus === getStatus(order)) return;
+    if (nextStatus === 'cancelled') {
+      openCancelOrder(order);
+      return;
+    }
 
     const previousOrders = orders;
     setStatusError('');
@@ -437,6 +521,61 @@ function Dashboard({ session }) {
     }
 
     setUpdatingStatusId(null);
+  }
+
+  function openCancelOrder(order) {
+    setCancelError('');
+    setCancelDraft({
+      order,
+      reason: order.cancel_reason || CANCELLATION_REASONS[0].value,
+      note: order.cancel_note || '',
+    });
+  }
+
+  function closeCancelOrder() {
+    if (cancellingOrderId) return;
+    setCancelDraft(null);
+    setCancelError('');
+  }
+
+  async function handleCancelOrder(event) {
+    event.preventDefault();
+    if (!cancelDraft?.order?.id || cancellingOrderId) return;
+
+    const reasonLabel = CANCELLATION_REASON_LABELS[cancelDraft.reason] || 'Otro motivo';
+    const cancelNote = cancelDraft.note.trim();
+    const previousOrders = orders;
+    const cancelledAt = new Date().toISOString();
+    const updatePayload = {
+      status: 'cancelled',
+      cancel_reason: cancelDraft.reason,
+      cancel_reason_label: reasonLabel,
+      cancel_note: cancelNote || null,
+      cancelled_at: cancelledAt,
+    };
+
+    setCancelError('');
+    setStatusError('');
+    setCancellingOrderId(cancelDraft.order.id);
+    setOrders(prev => prev.map(item => (
+      item.id === cancelDraft.order.id
+        ? { ...item, ...updatePayload }
+        : item
+    )));
+
+    const { error } = await supabase
+      .from('orders')
+      .update(updatePayload)
+      .eq('id', cancelDraft.order.id);
+
+    if (error) {
+      setOrders(previousOrders);
+      setCancelError(error.message);
+    } else {
+      setCancelDraft(null);
+    }
+
+    setCancellingOrderId(null);
   }
 
   return (
@@ -521,9 +660,96 @@ function Dashboard({ session }) {
           error={ordersError}
           onRefresh={loadOrders}
           onStatusChange={handleStatusChange}
+          onRequestCancel={openCancelOrder}
           updatingStatusId={updatingStatusId}
+          cancellingOrderId={cancellingOrderId}
         />
       </section>
+
+      {cancelDraft && (
+        <div className="fixed inset-0 z-[260] flex items-end justify-center bg-[#3f2128]/32 px-3 py-4 backdrop-blur-sm sm:items-center">
+          <motion.form
+            initial={{ opacity: 0, y: 18, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.98 }}
+            transition={{ duration: 0.22 }}
+            onSubmit={handleCancelOrder}
+            className="w-full max-w-xl rounded-[2rem] border border-red-100 bg-white p-5 shadow-[0_24px_80px_rgba(63,33,40,0.22)] sm:p-6"
+          >
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50">
+                <Ban className="h-5 w-5 text-red-500" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-red-400">Cancelar pedido</p>
+                <h3 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">
+                  {getCustomerName(cancelDraft.order)}
+                </h3>
+                <p className="mt-1 text-xs font-semibold text-[#3f2128]/48">
+                  {cancelDraft.order.order_id ?? cancelDraft.order.id} · {formatCLP(getOrderTotal(cancelDraft.order))}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-2">
+              {CANCELLATION_REASONS.map(reason => {
+                const active = cancelDraft.reason === reason.value;
+                return (
+                  <button
+                    key={reason.value}
+                    type="button"
+                    onClick={() => setCancelDraft(prev => ({ ...prev, reason: reason.value }))}
+                    className={`rounded-2xl border px-4 py-3 text-left transition ${
+                      active
+                        ? 'border-red-200 bg-red-50 text-red-700'
+                        : 'border-pink-100 bg-[#fff7fb] text-[#3f2128]'
+                    }`}
+                  >
+                    <span className="block text-sm font-bold">{reason.label}</span>
+                    <span className="mt-0.5 block text-xs font-medium opacity-60">{reason.detail}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <label className="mt-4 block">
+              <span className="mb-2 ml-1 block text-sm font-bold text-[#3f2128]/70">Nota opcional</span>
+              <textarea
+                rows={3}
+                value={cancelDraft.note}
+                onChange={(event) => setCancelDraft(prev => ({ ...prev, note: event.target.value }))}
+                placeholder="Ej. era una prueba, cliente pidio cancelar o no hubo cupo."
+                className="w-full resize-none rounded-2xl border border-pink-100 bg-[#fff7fb] px-4 py-3 text-sm font-semibold text-[#3f2128] outline-none transition focus:border-red-200"
+              />
+            </label>
+
+            {cancelError && (
+              <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-500">
+                No se pudo cancelar: {cancelError}
+              </p>
+            )}
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={closeCancelOrder}
+                disabled={Boolean(cancellingOrderId)}
+                className="min-h-[46px] rounded-2xl border border-pink-100 bg-white px-4 py-3 text-sm font-bold text-[#3f2128]/62 disabled:opacity-60"
+              >
+                Volver
+              </button>
+              <button
+                type="submit"
+                disabled={Boolean(cancellingOrderId)}
+                className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-2xl bg-red-500 px-4 py-3 text-sm font-bold text-white shadow-[0_14px_34px_rgba(239,68,68,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {cancellingOrderId ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
+                Cancelar pedido
+              </button>
+            </div>
+          </motion.form>
+        </div>
+      )}
     </AdminFrame>
   );
 }

@@ -26,6 +26,10 @@ create table if not exists public.orders (
   payment_method text not null,
   payment_label text not null,
   comments text,
+  cancel_reason text,
+  cancel_reason_label text,
+  cancel_note text,
+  cancelled_at timestamptz,
   item_count integer not null default 0,
   subtotal_products_clp integer not null default 0,
   total_clp integer not null default 0,
@@ -39,6 +43,29 @@ create index if not exists orders_created_at_idx on public.orders (created_at de
 create index if not exists orders_delivery_date_idx on public.orders (delivery_date);
 create index if not exists orders_status_idx on public.orders (status);
 create index if not exists orders_customer_phone_idx on public.orders (customer_phone);
+
+alter table public.orders
+  add column if not exists cancel_reason text,
+  add column if not exists cancel_reason_label text,
+  add column if not exists cancel_note text,
+  add column if not exists cancelled_at timestamptz;
+
+create index if not exists orders_cancel_reason_idx on public.orders (cancel_reason) where status = 'cancelled';
+
+alter table public.orders drop constraint if exists orders_cancel_reason_allowed;
+alter table public.orders
+  add constraint orders_cancel_reason_allowed
+  check (
+    cancel_reason is null or cancel_reason in (
+      'test_order',
+      'client_not_confirmed',
+      'out_of_zone',
+      'no_availability',
+      'product_unavailable',
+      'duplicate',
+      'other'
+    )
+  );
 
 create or replace function public.touch_updated_at()
 returns trigger

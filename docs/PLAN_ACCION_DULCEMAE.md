@@ -193,6 +193,24 @@ Estados de pedido:
 - Entregado.
 - Cancelado.
 
+Cancelaciones profesionales:
+
+- No borrar automaticamente al rechazar un pedido.
+- Cambiar primero el estado a Cancelado.
+- Guardar motivo de cancelacion para analisis:
+  - Pedido de prueba.
+  - Cliente no confirmo.
+  - Fuera de zona.
+  - Sin disponibilidad.
+  - Producto no disponible.
+  - Pedido duplicado.
+  - Otro motivo.
+- Guardar nota opcional y fecha de cancelacion.
+- Excluir cancelados de ventas visibles.
+- Mas adelante agregar filtro para ocultar/mostrar cancelados.
+- Mas adelante agregar limpieza controlada de cancelados antiguos, por ejemplo 60 dias.
+- Boton de eliminar definitivo solo para casos especiales y con confirmacion clara.
+
 Por que mejora el negocio:
 
 - Tu mama no depende de memoria.
