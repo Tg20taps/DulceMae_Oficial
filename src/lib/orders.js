@@ -1,4 +1,7 @@
-import { isSupabaseConfigured, supabase } from './supabaseClient';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+const isOrdersApiConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 export function buildOrderRecord(payload) {
   return {
@@ -31,17 +34,26 @@ export function buildOrderRecord(payload) {
 }
 
 export async function saveCheckoutOrder(payload) {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!isOrdersApiConfigured) {
     return { ok: false, skipped: true, reason: 'supabase_not_configured' };
   }
 
-  const { error } = await supabase
-    .from('orders')
-    .insert(buildOrderRecord(payload));
+  const response = await fetch(`${supabaseUrl}/rest/v1/orders`, {
+    method: 'POST',
+    headers: {
+      apikey: supabaseAnonKey,
+      Authorization: `Bearer ${supabaseAnonKey}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify(buildOrderRecord(payload)),
+  });
 
-  if (error) {
-    return { ok: false, skipped: false, reason: error.message };
+  if (!response.ok) {
+    const reason = await response.text();
+    return { ok: false, skipped: false, reason };
   }
 
-  return { ok: true, skipped: false };
+  const rows = await response.json().catch(() => []);
+  return { ok: true, skipped: false, id: rows?.[0]?.id };
 }

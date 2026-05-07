@@ -857,17 +857,17 @@ const CartModal = () => {
 
     const deliveryLines = payload.fulfillment.type === 'delivery'
       ? [
-          `Modalidad: Delivery`,
+          `Modalidad: delivery`,
           `Sector: ${payload.fulfillment.delivery_zone_label}`,
           payload.fulfillment.address_mode === 'whatsapp_location'
-            ? `Ubicación: la enviaré directamente por WhatsApp`
-            : `Dirección / Maps: ${payload.fulfillment.address}`,
+            ? `Ubicación: se las envío ahora por WhatsApp`
+            : `Dirección: ${payload.fulfillment.address}`,
           payload.fulfillment.delivery_fee_known
             ? `Delivery: ${formatCLP(payload.summary.delivery_fee_clp)}`
             : `Delivery: por coordinar`,
         ]
       : [
-          `Modalidad: Retiro`,
+          `Modalidad: retiro`,
           `Retiro: coordinar en DulceMae`,
         ];
 
@@ -881,33 +881,31 @@ const CartModal = () => {
     ].filter(Boolean);
 
     const finalWhatsAppMessage = [
-      `¡Hola DulceMae! 💕 ¿Cómo están?`,
-      `Soy *${payload.customer.name}* y me gustaría confirmar este pedido artesanal.`,
+      `¡Hola DulceMae! 💕 ¿Cómo están? Soy *${payload.customer.name}* 😊`,
+      `Me gustaría encargarles esto cuando tengan disponibilidad:`,
       ``,
-      `🧾 *Pedido*`,
+      `🍰 *Mi pedido*`,
       cleanItemLines,
       ``,
-      `📅 *Entrega*`,
-      `Fecha: ${dateFormatted}`,
-      `Hora aproximada: ${payload.customer.preferred_time}`,
+      `📅 *Para la entrega*`,
+      `Me gustaría para el ${dateFormatted}`,
+      `Ojalá cerca de las ${payload.customer.preferred_time}`,
       ...deliveryLines,
       ``,
-      `👤 *Contacto*`,
+      `💳 *Pago y contacto*`,
+      `Pago: ${payload.payment.label}`,
       `Teléfono: ${payload.customer.phone}`,
-      ``,
-      `💳 *Pago*`,
-      payload.payment.label,
       payload.customer.comments ? `` : null,
-      payload.customer.comments ? `💬 *Comentario*` : null,
+      payload.customer.comments ? `💬 *Detalle extra*` : null,
       payload.customer.comments ? payload.customer.comments : null,
       ``,
-      `✨ *Total estimado*`,
+      `✨ *Total estimado por la web*`,
       ...summaryLines,
       payload.summary.delivery_fee_pending ? `_Se confirma disponibilidad y costo final por WhatsApp._` : null,
       ``,
       `Referencia: ${payload.order_id}`,
       ``,
-      `Quedo pendiente de su confirmación. Muchas gracias ✨`,
+      `¿Me confirman si se puede? Muchas gracias ✨`,
     ].filter(line => line !== null && line !== undefined).join('\n');
 
     const whatsappUrl = `https://wa.me/56975562291?text=${encodeURIComponent(finalWhatsAppMessage)}`;

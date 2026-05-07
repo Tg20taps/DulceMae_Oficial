@@ -1,5 +1,5 @@
 -- DulceMae orders schema
--- Run this in Supabase SQL Editor after replacing admin@dulcemae.cl.
+-- Run this in Supabase SQL Editor after replacing the admin email if needed.
 
 create extension if not exists pgcrypto;
 
@@ -61,9 +61,13 @@ language sql
 stable
 as $$
   select lower(coalesce(auth.jwt() ->> 'email', '')) in (
-    'admin@dulcemae.cl'
+    'claudiamancilla1978@gmail.com'
   );
 $$;
+
+grant usage on schema public to anon, authenticated;
+grant insert on public.orders to anon, authenticated;
+grant select, update, delete on public.orders to authenticated;
 
 alter table public.orders enable row level security;
 
