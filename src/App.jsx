@@ -80,7 +80,9 @@ function SectionFallback() {
   );
 }
 
-function AdminErrorFallback() {
+function AdminErrorFallback({ error }) {
+  const errorMessage = error?.message || '';
+
   return (
     <main className="min-h-screen bg-[#fff7fb] px-4 py-10 text-[#321b24]">
       <section className="mx-auto flex min-h-[70vh] w-full max-w-xl flex-col justify-center rounded-[2rem] border border-pink-100 bg-white/84 p-7 shadow-[0_24px_80px_rgba(190,24,93,0.14)]">
@@ -97,6 +99,11 @@ function AdminErrorFallback() {
         >
           Recargar panel
         </button>
+        {errorMessage && (
+          <p className="mt-4 rounded-2xl border border-pink-100 bg-[#fff7fb] px-4 py-3 text-xs font-semibold leading-5 text-[#3f2128]/56">
+            Detalle tecnico: {errorMessage}
+          </p>
+        )}
         <p className="mt-6 text-xs font-bold uppercase tracking-[0.18em] text-[#be185d]/70">
           Si sigue pasando, revisar:
         </p>
@@ -113,11 +120,11 @@ function AdminErrorFallback() {
 class AdminErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
   }
 
   componentDidCatch(error) {
@@ -125,7 +132,7 @@ class AdminErrorBoundary extends React.Component {
   }
 
   render() {
-    if (this.state.hasError) return <AdminErrorFallback />;
+    if (this.state.hasError) return <AdminErrorFallback error={this.state.error} />;
     return this.props.children;
   }
 }

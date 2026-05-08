@@ -31,11 +31,17 @@ import {
   X,
 } from 'lucide-react';
 import {
+  fetchAdminOrders,
+  getStoredAdminSession,
+  signInAdmin,
+  signOutAdmin,
+  updateAdminOrder,
+} from '../../lib/adminApi';
+import {
   adminAllowedEmails,
   isAllowedAdminEmail,
   isSupabaseConfigured,
-  supabase,
-} from '../../lib/supabaseClient';
+} from '../../lib/supabaseConfig';
 
 const STATUS_LABELS = {
   pending: 'Nuevo',
@@ -848,7 +854,7 @@ function AdminUnavailable() {
   );
 }
 
-function LoginPanel() {
+function LoginPanel({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -860,12 +866,13 @@ function LoginPanel() {
     setError('');
     setLoading(true);
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    const { session, error: signInError } = await signInAdmin(email.trim(), password);
 
-    if (signInError) setError(signInError.message);
+    if (signInError) {
+      setError(signInError);
+    } else {
+      onLogin(session);
+    }
     setLoading(false);
   }
 
@@ -2309,7 +2316,7 @@ function OrdersTable({
     </div>
   );
 }
-function Dashboard({ session }) {
+function Dashboard({ session, onSignOut }) {
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [ordersError, setOrdersError] = useState('');
@@ -2328,21 +2335,17 @@ function Dashboard({ session }) {
     setLoadingOrders(true);
     setOrdersError('');
 
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(ORDER_FETCH_LIMIT);
+    const { data, error } = await fetchAdminOrders(session, ORDER_FETCH_LIMIT);
 
     if (error) {
       setOrders([]);
-      setOrdersError(error.message);
+      setOrdersError(error);
     } else {
       setOrders(Array.isArray(data) ? data : []);
     }
 
     setLoadingOrders(false);
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     loadOrders();
@@ -2394,7 +2397,8 @@ function Dashboard({ session }) {
   ), [orders, selectedOrderKey]);
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
+    await signOutAdmin(session);
+    onSignOut();
   }
 
   function handleOpenDetails(order) {
@@ -2443,14 +2447,11 @@ function Dashboard({ session }) {
     setUpdatingStatusId(order.id);
     setOrders(prev => prev.map(item => item.id === order.id ? { ...item, ...updatePayload } : item));
 
-    const { error } = await supabase
-      .from('orders')
-      .update(updatePayload)
-      .eq('id', order.id);
+    const { error } = await updateAdminOrder(session, order.id, updatePayload);
 
     if (error) {
       setOrders(previousOrders);
-      setStatusError(error.message);
+      setStatusError(error);
     } else if (nextStatus === 'ready') {
       setStatusNotice('Pedido marcado como listo. Ahora puedes avisar al cliente desde WhatsApp.');
     } else if (nextStatus === 'delivered') {
@@ -2502,14 +2503,11 @@ function Dashboard({ session }) {
         : item
     )));
 
-    const { error } = await supabase
-      .from('orders')
-      .update(updatePayload)
-      .eq('id', cancelDraft.order.id);
+    const { error } = await updateAdminOrder(session, cancelDraft.order.id, updatePayload);
 
     if (error) {
       setOrders(previousOrders);
-      setCancelError(error.message);
+      setCancelError(error);
     } else {
       setCancelDraft(null);
       setSelectedOrderKey(null);
@@ -2749,9 +2747,10 @@ function Dashboard({ session }) {
   );
 }
 
-function AccessDenied({ session }) {
+function AccessDenied({ session, onSignOut }) {
   async function handleSignOut() {
-    await supabase.auth.signOut();
+    await signOutAdmin(session);
+    onSignOut();
   }
 
   return (
@@ -2789,20 +2788,18 @@ export default function AdminShell() {
 
     let mounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
+    getStoredAdminSession().then(({ session: storedSession }) => {
       if (!mounted) return;
-      setSession(data.session ?? null);
+      setSession(storedSession ?? null);
       setBooting(false);
-    });
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
+    }).catch(() => {
+      if (!mounted) return;
+      setSession(null);
       setBooting(false);
     });
 
     return () => {
       mounted = false;
-      listener.subscription.unsubscribe();
     };
   }, []);
 
@@ -2818,9 +2815,11 @@ export default function AdminShell() {
     );
   }
 
-  if (!session) return <LoginPanel />;
+  if (!session) return <LoginPanel onLogin={setSession} />;
 
-  if (!isAllowedAdminEmail(session.user.email)) return <AccessDenied session={session} />;
+  if (!isAllowedAdminEmail(session.user.email)) {
+    return <AccessDenied session={session} onSignOut={() => setSession(null)} />;
+  }
 
-  return <Dashboard session={session} />;
+  return <Dashboard session={session} onSignOut={() => setSession(null)} />;
 }
