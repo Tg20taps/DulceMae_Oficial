@@ -67,8 +67,17 @@ export function CartProvider({ children }) {
   const openCart = useCallback(() => setIsCartOpen(true), []);
   const closeCart = useCallback(() => setIsCartOpen(false), []);
 
-  const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
-  const cartTotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
+  const { cartCount, cartTotal } = useMemo(() => {
+    let count = 0;
+    let total = 0;
+
+    for (const item of cartItems) {
+      count += item.quantity;
+      total += item.price * item.quantity;
+    }
+
+    return { cartCount: count, cartTotal: total };
+  }, [cartItems]);
 
   const value = useMemo(() => ({
     cartItems,

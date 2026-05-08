@@ -200,19 +200,6 @@ function isValidChileanMobile(value) {
   return digits.length === 11 && digits.startsWith('569');
 }
 
-function getProductMessageEmoji(productName) {
-  const name = String(productName || '').toLowerCase();
-
-  if (name.includes('alfajor')) return '🍪';
-  if (name.includes('kuchen') || name.includes('pie') || name.includes('manzana') || name.includes('nuez')) return '🥧';
-  if (name.includes('cheesecake')) return '🍰';
-  if (name.includes('torta') || name.includes('cake') || name.includes('chocolate') || name.includes('red velvet')) return '🎂';
-  if (name.includes('vela')) return '🕯️';
-  if (name.includes('caja') || name.includes('regalo')) return '🎁';
-
-  return '🍰';
-}
-
 const ALERCE_DELIVERY_FEE_CLP = 3000;
 const PUERTO_MONTT_DELIVERY_FEE_CLP = 5500;
 const DEFAULT_DELIVERY_ZONE = 'alerce_cercano';
@@ -893,68 +880,68 @@ const CartModal = () => {
     }
     */
 
-    // 📱 Mensaje WhatsApp — versión final cálida, breve y fácil de leer.
+    // Keep this message emoji-free: WhatsApp Desktop/Web can render pasted emoji
+    // inconsistently from wa.me prefilled text on some Windows setups.
     const dateFormatted = new Date(payload.customer.delivery_date + 'T12:00:00')
       .toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     const preferredTimeReadable = formatTimeMeridiem(payload.customer.preferred_time);
 
     const cleanItemLines = payload.items
-      .map(i => `${getProductMessageEmoji(i.name)} ${i.quantity}x ${i.name} — ${formatCLP(i.subtotal)}`)
+      .map(i => `- ${i.quantity} x ${i.name}: ${formatCLP(i.subtotal)}`)
       .join('\n');
 
     const deliveryLines = payload.fulfillment.type === 'delivery'
       ? [
-          `Modalidad: delivery`,
-          `Sector: ${payload.fulfillment.delivery_zone_label}`,
+          `- Modalidad: Delivery`,
+          `- Sector: ${payload.fulfillment.delivery_zone_label}`,
           payload.fulfillment.address_mode === 'whatsapp_location'
-            ? `Ubicación: se las envío ahora por WhatsApp`
-            : `Dirección: ${payload.fulfillment.address}`,
+            ? `- Ubicación: la comparto ahora por WhatsApp`
+            : `- Dirección: ${payload.fulfillment.address}`,
           payload.fulfillment.delivery_fee_known
-            ? `Delivery: ${formatCLP(payload.summary.delivery_fee_clp)}`
-            : `Delivery: por coordinar`,
+            ? `- Delivery: ${formatCLP(payload.summary.delivery_fee_clp)}`
+            : `- Delivery: por coordinar`,
         ]
       : [
-          `Modalidad: retiro`,
-          `Retiro: coordinar en DulceMae`,
+          `- Modalidad: Retiro`,
+          `- Retiro: coordinar en DulceMae`,
         ];
 
     const summaryLines = [
-      payload.fulfillment.type === 'delivery' ? `Productos: ${formatCLP(payload.summary.subtotal_products_clp)}` : null,
-      payload.summary.delivery_fee_clp > 0 ? `Delivery: ${formatCLP(payload.summary.delivery_fee_clp)}` : null,
-      payload.summary.delivery_fee_pending ? `Delivery: por confirmar` : null,
+      payload.fulfillment.type === 'delivery' ? `- Productos: ${formatCLP(payload.summary.subtotal_products_clp)}` : null,
+      payload.summary.delivery_fee_clp > 0 ? `- Delivery: ${formatCLP(payload.summary.delivery_fee_clp)}` : null,
+      payload.summary.delivery_fee_pending ? `- Delivery: por confirmar` : null,
       payload.summary.delivery_fee_pending
-        ? `*Total parcial: ${formatCLP(payload.summary.total_clp)}*`
-        : `*Total: ${formatCLP(payload.summary.total_clp)}*`,
+        ? `- *Total parcial: ${formatCLP(payload.summary.total_clp)}*`
+        : `- *Total: ${formatCLP(payload.summary.total_clp)}*`,
     ].filter(Boolean);
 
     const finalWhatsAppMessage = [
-      `¡Hola DulceMae! 💕 ¿Cómo están? Soy *${payload.customer.name}* 😊`,
-      `Me gustaría encargarles esto cuando tengan disponibilidad:`,
+      `Hola DulceMae, soy *${payload.customer.name}*.`,
+      `Me gustaría consultar disponibilidad para este pedido:`,
       ``,
-      `🍰 *Mi pedido*`,
+      `*Pedido*`,
       cleanItemLines,
       ``,
-      `📅 *Para la entrega*`,
-      `Me gustaría para el ${dateFormatted}`,
-      `Ojalá cerca de las ${payload.customer.preferred_time}`,
-      preferredTimeReadable ? `Equivale a ${preferredTimeReadable}` : null,
+      `*Entrega*`,
+      `- Fecha: ${dateFormatted}`,
+      `- Hora preferida: ${payload.customer.preferred_time}${preferredTimeReadable ? ` (${preferredTimeReadable})` : ''}`,
       ...deliveryLines,
       ``,
-      `💳 *Pago y contacto*`,
-      `Pago: ${payload.payment.label}`,
-      `Teléfono: ${payload.customer.phone}`,
+      `*Pago y contacto*`,
+      `- Pago: ${payload.payment.label}`,
+      `- Teléfono: ${payload.customer.phone}`,
       payload.customer.comments ? `` : null,
-      payload.customer.comments ? `💬 *Detalle extra*` : null,
+      payload.customer.comments ? `*Detalle extra*` : null,
       payload.customer.comments ? payload.customer.comments : null,
       ``,
-      `✨ *Total estimado por la web*`,
+      `*Total estimado por la web*`,
       ...summaryLines,
       payload.summary.delivery_fee_pending ? `_Se confirma disponibilidad y costo final por WhatsApp._` : null,
       ``,
       `Referencia: ${payload.order_id}`,
       ``,
-      `¿Me confirman si se puede? Muchas gracias ✨`,
+      `¿Me confirman si es posible? Muchas gracias.`,
     ].filter(line => line !== null && line !== undefined).join('\n');
 
     const whatsappUrl = `https://wa.me/56975562291?text=${encodeURIComponent(finalWhatsAppMessage)}`;

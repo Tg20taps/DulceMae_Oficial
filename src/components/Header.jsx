@@ -29,17 +29,13 @@ export default function Header() {
   const accent = currentTheme.accent ?? '#be185d';
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 32);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
-  useEffect(() => {
     let ticking = false;
+    let frameId = 0;
 
-    const updateActive = () => {
+    const updateNavState = () => {
       ticking = false;
+      setScrolled(window.scrollY > 32);
+
       const probe = window.innerHeight * 0.36;
       let next = '#inicio';
 
@@ -60,14 +56,15 @@ export default function Header() {
     const onScroll = () => {
       if (!ticking) {
         ticking = true;
-        requestAnimationFrame(updateActive);
+        frameId = window.requestAnimationFrame(updateNavState);
       }
     };
 
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
-    updateActive();
+    updateNavState();
     return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
     };

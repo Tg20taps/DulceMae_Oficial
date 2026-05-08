@@ -1136,24 +1136,26 @@ function Dashboard({ session }) {
   }, [loadOrders]);
 
   const metrics = useMemo(() => {
-    const counts = STATUS_OPTIONS.reduce((acc, option) => {
-      acc[option.value] = orders.filter(order => getStatus(order) === option.value).length;
-      return acc;
-    }, {});
-    const revenue = orders
-      .filter(order => getStatus(order) !== 'cancelled')
-      .reduce((sum, order) => sum + Number(getOrderTotal(order) || 0), 0);
+    const counts = Object.fromEntries(STATUS_OPTIONS.map(option => [option.value, 0]));
+    let revenue = 0;
+
+    for (const order of orders) {
+      const status = getStatus(order);
+      counts[status] = (counts[status] ?? 0) + 1;
+      if (status !== 'cancelled') revenue += Number(getOrderTotal(order) || 0);
+    }
+
     return { counts, revenue };
   }, [orders]);
 
   const filterCounts = useMemo(() => (
     ORDER_FILTERS.reduce((acc, filter) => {
       acc[filter.value] = filter.statuses
-        ? orders.filter(order => filter.statuses.includes(getStatus(order))).length
+        ? filter.statuses.reduce((sum, status) => sum + (metrics.counts[status] ?? 0), 0)
         : orders.length;
       return acc;
     }, {})
-  ), [orders]);
+  ), [metrics.counts, orders.length]);
 
   const currentFilter = ORDER_FILTERS.find(filter => filter.value === activeFilter) ?? ORDER_FILTERS[0];
 

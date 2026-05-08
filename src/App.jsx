@@ -144,6 +144,7 @@ function AppInterior() {
       ['footer', 'caramel'],
     ];
     let ticking = false;
+    let frameId = 0;
 
     const updateTheme = () => {
       ticking = false;
@@ -166,7 +167,7 @@ function AppInterior() {
     const onScroll = () => {
       if (!ticking) {
         ticking = true;
-        requestAnimationFrame(updateTheme);
+        frameId = window.requestAnimationFrame(updateTheme);
       }
     };
 
@@ -174,6 +175,7 @@ function AppInterior() {
     window.addEventListener('resize', onScroll);
     updateTheme();
     return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
     };
