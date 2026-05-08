@@ -44,13 +44,17 @@ const STATUS_LABELS = {
 };
 
 const STATUS_OPTIONS = Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }));
+const ACTIVE_ORDER_STATUSES = ['pending', 'confirmed', 'preparing', 'ready'];
+const HISTORY_ORDER_STATUSES = ['delivered', 'cancelled'];
+const ORDER_FETCH_LIMIT = 200;
 
 const ORDER_FILTERS = [
-  { value: 'all', label: 'Todos', statuses: null },
+  { value: 'active', label: 'Activos', statuses: ACTIVE_ORDER_STATUSES },
   { value: 'pending', label: 'Nuevo', statuses: ['pending'] },
   { value: 'confirmed', label: 'Confirmado', statuses: ['confirmed'] },
-  { value: 'preparing', label: 'Preparación', statuses: ['preparing'] },
+  { value: 'preparing', label: 'En preparación', statuses: ['preparing'] },
   { value: 'ready', label: 'Listo', statuses: ['ready'] },
+  { value: 'history', label: 'Historial', statuses: HISTORY_ORDER_STATUSES },
   { value: 'delivered', label: 'Entregado', statuses: ['delivered'] },
   { value: 'cancelled', label: 'Cancelado', statuses: ['cancelled'] },
 ];
@@ -85,7 +89,7 @@ const STATUS_STYLES = {
 const STATUS_ACTIONS = [
   { value: 'pending', label: 'Nuevo', Icon: Clock3 },
   { value: 'confirmed', label: 'Confirmar', Icon: CheckCircle2 },
-  { value: 'preparing', label: 'Preparación', Icon: PackageCheck },
+  { value: 'preparing', label: 'En preparación', Icon: PackageCheck },
   { value: 'ready', label: 'Listo', Icon: CheckCircle2 },
   { value: 'delivered', label: 'Entregado', Icon: PackageCheck },
 ];
@@ -135,6 +139,47 @@ const CANCELLATION_REASON_LABELS = Object.fromEntries(
 function formatCLP(value) {
   const numeric = Number(value) || 0;
   return `$${numeric.toLocaleString('es-CL')}`;
+}
+
+function toOrderDate(value) {
+  if (!value) return null;
+
+  const date = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T12:00:00`)
+    : new Date(value);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function startOfDay(date) {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+function startOfWeek(date) {
+  const copy = startOfDay(date);
+  const mondayOffset = (copy.getDay() + 6) % 7;
+  copy.setDate(copy.getDate() - mondayOffset);
+  return copy;
+}
+
+function startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addDays(date, days) {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
+
+function addMonths(date, months) {
+  return new Date(date.getFullYear(), date.getMonth() + months, 1);
+}
+
+function isDateInRange(date, start, end) {
+  return date >= start && date < end;
 }
 
 function getOrderTotal(order) {
@@ -245,11 +290,8 @@ function getOrderComments(order) {
 function formatOrderDate(value, options = {}) {
   if (!value) return 'Sin fecha';
 
-  const date = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
-    ? new Date(`${value}T12:00:00`)
-    : new Date(value);
-
-  if (Number.isNaN(date.getTime())) return String(value);
+  const date = toOrderDate(value);
+  if (!date) return String(value);
 
   return date.toLocaleDateString('es-CL', {
     weekday: options.long ? 'long' : 'short',
@@ -343,24 +385,24 @@ function buildQuickMessages(order) {
       text: [
         `${greeting}, para reservar tu pedido ${reference} puedes hacer un abono o transferencia.`,
         `Total estimado: ${total}.`,
-        'Cuando puedas, enviame el comprobante por aqui y lo dejo marcado como confirmado.',
+        'Cuando puedas, envíame el comprobante por aquí y lo dejo marcado como confirmado.',
       ].join('\n'),
     },
     {
       key: 'preparing',
-      label: 'Avisar preparación',
-      detail: 'Cuando ya se está preparando.',
+      label: 'Avisar que está en preparación',
+      detail: 'Cuando el pedido ya se está preparando.',
       text: [
         `${greeting}, tu pedido ${reference} ya está en preparación.`,
-        'Te aviso por este mismo chat cuando este listo.',
+        'Te aviso por este mismo chat cuando esté listo.',
       ].join('\n'),
     },
     {
       key: 'ready',
-      label: 'Avisar que esta listo',
+      label: 'Avisar que está listo',
       detail: 'Para retiro o delivery.',
       text: [
-        `${greeting}, tu pedido ${reference} ya esta listo.`,
+        `${greeting}, tu pedido ${reference} ya está listo.`,
         readyDetail,
         'Muchas gracias.',
       ].join('\n'),
@@ -375,6 +417,101 @@ function getNextStatusAction(order) {
   if (status === 'preparing') return { value: 'ready', label: 'Marcar listo', Icon: CheckCircle2 };
   if (status === 'ready') return { value: 'delivered', label: 'Marcar entregado', Icon: PackageCheck };
   return null;
+}
+
+const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+function getOrderAnalysisDate(order) {
+  return toOrderDate(getOrderDate(order)) ?? toOrderDate(order?.created_at);
+}
+
+function buildAdminInsights(orders) {
+  const now = new Date();
+  const todayStart = startOfDay(now);
+  const tomorrowStart = addDays(todayStart, 1);
+  const weekStart = startOfWeek(now);
+  const nextWeekStart = addDays(weekStart, 7);
+  const monthStart = startOfMonth(now);
+  const nextMonthStart = addMonths(monthStart, 1);
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+  const weekdays = WEEKDAY_LABELS.map(label => ({ label, orders: 0, revenue: 0 }));
+  const monthDays = Array.from({ length: daysInMonth }, (_, index) => ({
+    label: String(index + 1),
+    orders: 0,
+    revenue: 0,
+  }));
+  const fulfillment = [
+    { label: 'Delivery', value: 0 },
+    { label: 'Retiro', value: 0 },
+  ];
+  const paymentMap = new Map();
+  const summary = {
+    todayOrders: 0,
+    todayRevenue: 0,
+    weekOrders: 0,
+    weekRevenue: 0,
+    monthOrders: 0,
+    monthRevenue: 0,
+    activeOrders: 0,
+    readyOrders: 0,
+  };
+
+  for (const order of orders) {
+    const status = getStatus(order);
+    if (ACTIVE_ORDER_STATUSES.includes(status)) summary.activeOrders += 1;
+    if (status === 'ready') summary.readyOrders += 1;
+    if (status === 'cancelled') continue;
+
+    const date = getOrderAnalysisDate(order);
+    if (!date) continue;
+
+    const total = Number(getOrderTotal(order) || 0);
+    const weekdayIndex = (date.getDay() + 6) % 7;
+    weekdays[weekdayIndex].orders += 1;
+    weekdays[weekdayIndex].revenue += total;
+
+    if (date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()) {
+      monthDays[date.getDate() - 1].orders += 1;
+      monthDays[date.getDate() - 1].revenue += total;
+    }
+
+    if (isDateInRange(date, todayStart, tomorrowStart)) {
+      summary.todayOrders += 1;
+      summary.todayRevenue += total;
+    }
+
+    if (isDateInRange(date, weekStart, nextWeekStart)) {
+      summary.weekOrders += 1;
+      summary.weekRevenue += total;
+    }
+
+    if (isDateInRange(date, monthStart, nextMonthStart)) {
+      summary.monthOrders += 1;
+      summary.monthRevenue += total;
+    }
+
+    const fulfillmentType = getFulfillmentType(order);
+    if (fulfillmentType === 'delivery') fulfillment[0].value += 1;
+    if (fulfillmentType === 'pickup') fulfillment[1].value += 1;
+
+    const payment = getPaymentLabel(order) || 'Sin pago';
+    paymentMap.set(payment, (paymentMap.get(payment) ?? 0) + 1);
+  }
+
+  const strongestWeekday = weekdays.reduce((best, day) => (
+    day.orders > best.orders ? day : best
+  ), weekdays[0]);
+  const hasWeekdayOrders = weekdays.some(day => day.orders > 0);
+
+  return {
+    ...summary,
+    weekdays,
+    monthDays,
+    fulfillment,
+    payments: Array.from(paymentMap, ([label, value]) => ({ label, value })),
+    strongestWeekday: hasWeekdayOrders ? strongestWeekday : null,
+  };
 }
 
 function AdminFrame({ children }) {
@@ -542,7 +679,7 @@ function LoginPanel() {
 
 function MetricCard({ label, value, Icon }) {
   return (
-    <div className="rounded-3xl border border-pink-100 bg-white/78 p-3 shadow-sm backdrop-blur sm:p-5">
+    <div className="rounded-3xl border border-[#efc6d8] bg-white p-3 shadow-[0_16px_38px_rgba(63,33,40,0.08)] backdrop-blur sm:p-5">
       <div className="flex items-center justify-between gap-3">
         <p className="text-[10px] font-bold uppercase leading-snug tracking-[0.12em] text-[#be185d]/54 sm:text-xs sm:tracking-[0.16em]">{label}</p>
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-[#be185d]/10 sm:h-10 sm:w-10">
@@ -559,7 +696,7 @@ function StatusBars({ counts }) {
   const max = Math.max(1, ...visibleStatuses.map(status => counts[status] ?? 0));
 
   return (
-    <section className="mt-4 rounded-3xl border border-pink-100 bg-white/76 p-4 shadow-sm backdrop-blur sm:p-5">
+    <section className="mt-4 rounded-3xl border border-[#efc6d8] bg-white p-4 shadow-[0_16px_38px_rgba(63,33,40,0.08)] backdrop-blur sm:p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#be185d]/50">Resumen visual</p>
@@ -577,7 +714,7 @@ function StatusBars({ counts }) {
               <span className="h-2.5 overflow-hidden rounded-full bg-[#fff1f8]">
                 <span
                   className={`block h-full rounded-full ${style.dot}`}
-                  style={{ width: `${Math.max(5, (count / max) * 100)}%`, opacity: count ? 1 : 0.28 }}
+                  style={{ width: count ? `${Math.max(7, (count / max) * 100)}%` : '0%' }}
                 />
               </span>
               <span className="text-right text-[#3f2128]">{count}</span>
@@ -589,9 +726,157 @@ function StatusBars({ counts }) {
   );
 }
 
+function InsightCard({ label, value, detail, Icon }) {
+  return (
+    <div className="rounded-3xl border border-[#efc6d8] bg-white p-4 shadow-[0_16px_38px_rgba(63,33,40,0.08)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#be185d]/62">{label}</p>
+          <p className="mt-2 font-serif text-2xl font-bold text-[#3f2128]">{value}</p>
+        </div>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#be185d]/12">
+          <Icon className="h-4 w-4 text-[#be185d]" />
+        </span>
+      </div>
+      <p className="mt-2 text-xs font-semibold leading-5 text-[#3f2128]/56">{detail}</p>
+    </div>
+  );
+}
+
+function MiniBarChart({ title, detail, data, valueKey = 'orders', formatValue = value => value }) {
+  const max = Math.max(1, ...data.map(item => Number(item[valueKey]) || 0));
+
+  return (
+    <section className="rounded-3xl border border-[#efc6d8] bg-white p-4 shadow-[0_16px_38px_rgba(63,33,40,0.08)]">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-serif text-xl font-bold text-[#3f2128]">{title}</h3>
+          <p className="mt-1 text-xs font-semibold leading-5 text-[#3f2128]/52">{detail}</p>
+        </div>
+        <BarChart3 className="h-5 w-5 shrink-0 text-[#be185d]" />
+      </div>
+      <div className="grid gap-3">
+        {data.map(item => {
+          const value = Number(item[valueKey]) || 0;
+          return (
+            <div key={item.label} className="grid grid-cols-[3.2rem_1fr_4.5rem] items-center gap-3 text-xs font-bold text-[#3f2128]/62">
+              <span className="truncate">{item.label}</span>
+              <span className="h-3 overflow-hidden rounded-full bg-[#f7dce8]">
+                <span
+                  className="block h-full rounded-full bg-[#be185d]"
+                  style={{ width: `${value ? Math.max(7, (value / max) * 100) : 0}%` }}
+                />
+              </span>
+              <span className="text-right text-[#3f2128]">{formatValue(value)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function SplitBarChart({ title, detail, data }) {
+  const total = Math.max(1, data.reduce((sum, item) => sum + item.value, 0));
+
+  return (
+    <section className="rounded-3xl border border-[#efc6d8] bg-white p-4 shadow-[0_16px_38px_rgba(63,33,40,0.08)]">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-serif text-xl font-bold text-[#3f2128]">{title}</h3>
+          <p className="mt-1 text-xs font-semibold leading-5 text-[#3f2128]/52">{detail}</p>
+        </div>
+        <ReceiptText className="h-5 w-5 shrink-0 text-[#be185d]" />
+      </div>
+      <div className="grid gap-3">
+        {data.length ? data.map(item => (
+          <div key={item.label} className="grid grid-cols-[5.5rem_1fr_2rem] items-center gap-3 text-xs font-bold text-[#3f2128]/62">
+            <span className="truncate">{item.label}</span>
+            <span className="h-3 overflow-hidden rounded-full bg-[#f7dce8]">
+              <span
+                className="block h-full rounded-full bg-[#3f2128]"
+                style={{ width: item.value ? `${Math.max(8, (item.value / total) * 100)}%` : '0%' }}
+              />
+            </span>
+            <span className="text-right text-[#3f2128]">{item.value}</span>
+          </div>
+        )) : (
+          <p className="rounded-2xl bg-[#fff7fb] px-4 py-3 text-sm font-semibold text-[#3f2128]/52">
+            Aún no hay datos suficientes.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function AdminInsights({ insights }) {
+  const monthDaysWithOrders = insights.monthDays.filter(day => day.orders > 0);
+  const visibleMonthDays = monthDaysWithOrders.length ? monthDaysWithOrders : insights.monthDays.slice(0, 7);
+
+  return (
+    <section className="mt-5">
+      <div className="mb-3">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#be185d]/62">Datos simples</p>
+        <h2 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Día, semana y mes</h2>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <InsightCard
+          label="Hoy"
+          value={`${insights.todayOrders} pedidos`}
+          detail={`Ventas visibles: ${formatCLP(insights.todayRevenue)}`}
+          Icon={CalendarDays}
+        />
+        <InsightCard
+          label="Esta semana"
+          value={`${insights.weekOrders} pedidos`}
+          detail={`Ventas visibles: ${formatCLP(insights.weekRevenue)}`}
+          Icon={BarChart3}
+        />
+        <InsightCard
+          label="Este mes"
+          value={`${insights.monthOrders} pedidos`}
+          detail={`Ventas visibles: ${formatCLP(insights.monthRevenue)}`}
+          Icon={ReceiptText}
+        />
+        <InsightCard
+          label="Pendientes"
+          value={`${insights.activeOrders} activos`}
+          detail={`${insights.readyOrders} listos para avisar o entregar`}
+          Icon={PackageCheck}
+        />
+      </div>
+
+      <div className="mt-3 grid gap-3 xl:grid-cols-2">
+        <MiniBarChart
+          title="Pedidos por día"
+          detail={`Día con más pedidos: ${insights.strongestWeekday?.label ?? 'sin datos'}`}
+          data={insights.weekdays}
+        />
+        <MiniBarChart
+          title="Pedidos del mes"
+          detail="Muestra los días del mes con movimiento para revisar patrones."
+          data={visibleMonthDays}
+        />
+        <SplitBarChart
+          title="Retiro o delivery"
+          detail="Ayuda a ver qué modalidad se usa más."
+          data={insights.fulfillment}
+        />
+        <SplitBarChart
+          title="Forma de pago"
+          detail="Conteo simple por método registrado."
+          data={insights.payments}
+        />
+      </div>
+    </section>
+  );
+}
+
 function WorkspaceCard({ eyebrow, title, detail, Icon, muted = false }) {
   return (
-    <div className="rounded-3xl border border-pink-100 bg-white/72 p-4 shadow-sm backdrop-blur sm:p-5">
+    <div className="rounded-3xl border border-[#efc6d8] bg-white p-4 shadow-[0_16px_38px_rgba(63,33,40,0.08)] backdrop-blur sm:p-5">
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#be185d]/10">
           <Icon className="h-4 w-4 text-[#be185d]" />
@@ -634,7 +919,7 @@ function OrdersFilters({ activeFilter, counts, onChange }) {
               className={`inline-flex min-h-[44px] items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-bold transition ${
                 active
                   ? 'border-[#be185d]/35 bg-[#be185d] text-white shadow-[0_12px_26px_rgba(190,24,93,0.18)]'
-                  : 'border-pink-100 bg-white/82 text-[#3f2128]/68 shadow-sm'
+                  : 'border-[#efc6d8] bg-white text-[#3f2128]/76 shadow-[0_8px_22px_rgba(63,33,40,0.06)]'
               }`}
             >
               {filter.label}
@@ -709,11 +994,14 @@ function OrderCard({
 }) {
   const status = getStatus(order);
   const nextAction = getNextStatusAction(order);
-  const whatsappUrl = buildCustomerWhatsAppUrl(order);
+  const readyMessage = status === 'ready'
+    ? buildQuickMessages(order).find(message => message.key === 'ready')?.text ?? ''
+    : '';
+  const whatsappUrl = buildCustomerWhatsAppUrl(order, readyMessage);
   const isBusy = updatingStatusId === order.id || cancellingOrderId === order.id;
 
   return (
-    <article className="rounded-3xl border border-pink-100 bg-white/86 p-4 shadow-sm backdrop-blur sm:p-5">
+    <article className="rounded-3xl border border-[#efc6d8] bg-white p-4 shadow-[0_18px_44px_rgba(63,33,40,0.09)] backdrop-blur transition hover:border-[#be185d]/30 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <StatusBadge status={status} />
@@ -765,7 +1053,7 @@ function OrderCard({
             className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-2xl bg-[#25d366] px-3 py-3 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,211,102,0.20)]"
           >
             <MessageCircle className="h-4 w-4" />
-            WhatsApp
+            {status === 'ready' ? 'Avisar listo' : 'WhatsApp'}
           </a>
         ) : (
           <button
@@ -1103,7 +1391,8 @@ function Dashboard({ session }) {
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [ordersError, setOrdersError] = useState('');
   const [statusError, setStatusError] = useState('');
-  const [activeFilter, setActiveFilter] = useState('all');
+  const [statusNotice, setStatusNotice] = useState('');
+  const [activeFilter, setActiveFilter] = useState('active');
   const [selectedOrderKey, setSelectedOrderKey] = useState(null);
   const [copiedMessageKey, setCopiedMessageKey] = useState('');
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
@@ -1119,7 +1408,7 @@ function Dashboard({ session }) {
       .from('orders')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(ORDER_FETCH_LIMIT);
 
     if (error) {
       setOrders([]);
@@ -1134,6 +1423,12 @@ function Dashboard({ session }) {
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
+
+  useEffect(() => {
+    if (!statusNotice) return undefined;
+    const timeoutId = window.setTimeout(() => setStatusNotice(''), 4200);
+    return () => window.clearTimeout(timeoutId);
+  }, [statusNotice]);
 
   const metrics = useMemo(() => {
     const counts = Object.fromEntries(STATUS_OPTIONS.map(option => [option.value, 0]));
@@ -1158,6 +1453,7 @@ function Dashboard({ session }) {
   ), [metrics.counts, orders.length]);
 
   const currentFilter = ORDER_FILTERS.find(filter => filter.value === activeFilter) ?? ORDER_FILTERS[0];
+  const insights = useMemo(() => buildAdminInsights(orders), [orders]);
 
   const filteredOrders = useMemo(() => {
     if (!currentFilter.statuses) return orders;
@@ -1216,6 +1512,7 @@ function Dashboard({ session }) {
     };
 
     setStatusError('');
+    setStatusNotice('');
     setUpdatingStatusId(order.id);
     setOrders(prev => prev.map(item => item.id === order.id ? { ...item, ...updatePayload } : item));
 
@@ -1227,6 +1524,11 @@ function Dashboard({ session }) {
     if (error) {
       setOrders(previousOrders);
       setStatusError(error.message);
+    } else if (nextStatus === 'ready') {
+      setStatusNotice('Pedido marcado como listo. Ahora puedes avisar al cliente desde WhatsApp.');
+    } else if (nextStatus === 'delivered') {
+      setSelectedOrderKey(null);
+      setStatusNotice('Pedido entregado. Quedó guardado en Historial y salió de Activos.');
     }
 
     setUpdatingStatusId(null);
@@ -1265,6 +1567,7 @@ function Dashboard({ session }) {
 
     setCancelError('');
     setStatusError('');
+    setStatusNotice('');
     setCancellingOrderId(cancelDraft.order.id);
     setOrders(prev => prev.map(item => (
       item.id === cancelDraft.order.id
@@ -1282,6 +1585,8 @@ function Dashboard({ session }) {
       setCancelError(error.message);
     } else {
       setCancelDraft(null);
+      setSelectedOrderKey(null);
+      setStatusNotice('Pedido cancelado con motivo. Quedó guardado en Historial.');
     }
 
     setCancellingOrderId(null);
@@ -1289,7 +1594,7 @@ function Dashboard({ session }) {
 
   return (
     <AdminFrame>
-      <header className="mb-5 flex flex-col gap-4 rounded-[2rem] border border-white/70 bg-white/72 px-4 py-4 shadow-sm backdrop-blur-xl sm:px-5 sm:py-5 md:flex-row md:items-center md:justify-between">
+      <header className="mb-5 flex flex-col gap-4 rounded-[2rem] border border-[#efc6d8] bg-white/92 px-4 py-4 shadow-[0_18px_48px_rgba(63,33,40,0.09)] backdrop-blur-xl sm:px-5 sm:py-5 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#be185d]/10 sm:h-12 sm:w-12">
             <Sparkles className="h-5 w-5 text-[#be185d]" />
@@ -1340,13 +1645,14 @@ function Dashboard({ session }) {
       <section className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <MetricCard label="Nuevos" value={metrics.counts.pending ?? 0} Icon={Clock3} />
         <MetricCard label="Confirmados" value={metrics.counts.confirmed ?? 0} Icon={CheckCircle2} />
-        <MetricCard label="Preparación" value={metrics.counts.preparing ?? 0} Icon={PackageCheck} />
+        <MetricCard label="En preparación" value={metrics.counts.preparing ?? 0} Icon={PackageCheck} />
         <MetricCard label="Listos" value={metrics.counts.ready ?? 0} Icon={PackageCheck} />
         <MetricCard label="Entregados" value={metrics.counts.delivered ?? 0} Icon={Truck} />
         <MetricCard label="Ventas visibles" value={formatCLP(metrics.revenue)} Icon={BarChart3} />
       </section>
 
       <StatusBars counts={metrics.counts} />
+      <AdminInsights insights={insights} />
 
       <section className="mt-6">
         <div className="mb-4 flex items-center justify-between gap-3">
@@ -1371,6 +1677,11 @@ function Dashboard({ session }) {
             No se pudo actualizar el estado: {statusError}
           </p>
         )}
+        {statusNotice && (
+          <p className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+            {statusNotice}
+          </p>
+        )}
         <OrdersTable
           orders={filteredOrders}
           loading={loadingOrders}
@@ -1382,7 +1693,7 @@ function Dashboard({ session }) {
           updatingStatusId={updatingStatusId}
           cancellingOrderId={cancellingOrderId}
           emptyTitle={orders.length ? `Sin pedidos en ${currentFilter.label.toLowerCase()}` : 'Sin pedidos todavia'}
-          emptyDetail={orders.length ? 'Cambia el filtro para revisar otros pedidos recientes.' : 'Los nuevos pedidos apareceran aqui despues de enviarse por WhatsApp. Si acabas de hacer una prueba, espera unos segundos y toca Actualizar.'}
+          emptyDetail={orders.length ? 'Cambia el filtro para revisar otros pedidos recientes o entra a Historial.' : 'Los nuevos pedidos apareceran aqui despues de enviarse por WhatsApp. Si acabas de hacer una prueba, espera unos segundos y toca Actualizar.'}
         />
       </section>
 
