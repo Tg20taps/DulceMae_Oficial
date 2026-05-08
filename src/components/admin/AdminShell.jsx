@@ -1344,8 +1344,6 @@ function CostsPlanningPanel() {
 
     return {
       ingredientTotal,
-      laborCost,
-      fixedCosts,
       totalCost,
       suggestedPrice,
       profit,
