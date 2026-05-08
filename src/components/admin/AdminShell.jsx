@@ -66,7 +66,112 @@ const ORDER_FILTERS = [
 const ADMIN_TABS = [
   { value: 'orders', label: 'Pedidos', detail: 'Atender y responder', Icon: ClipboardList },
   { value: 'insights', label: 'Análisis', detail: 'Día, semana y mes', Icon: BarChart3 },
-  { value: 'costs', label: 'Costos', detail: 'Próxima fase', Icon: Calculator },
+  { value: 'costs', label: 'Costos', detail: 'Calcular precios', Icon: Calculator },
+];
+
+const COST_DRAFT_KEY = 'dulcemae_cost_calculator_v1';
+
+const COST_PRESETS = [
+  {
+    key: 'cake_15',
+    label: 'Torta 15 personas',
+    productName: 'Torta personalizada 15 personas',
+    servings: 15,
+    salePrice: 26000,
+    targetMargin: 45,
+    laborHours: 3.5,
+    laborRate: 3500,
+    packagingCost: 1800,
+    decorationCost: 2500,
+    overheadCost: 1800,
+    deliveryCost: 0,
+    extraCost: 1000,
+    ingredients: [
+      { id: 'cake_15_1', name: 'Bizcocho e insumos base', quantity: '1 torta', cost: 5200 },
+      { id: 'cake_15_2', name: 'Relleno', quantity: '2 capas', cost: 4200 },
+      { id: 'cake_15_3', name: 'Cobertura', quantity: '1 terminación', cost: 3800 },
+    ],
+  },
+  {
+    key: 'cake_25',
+    label: 'Torta 25 personas',
+    productName: 'Torta personalizada 25 personas',
+    servings: 25,
+    salePrice: 38000,
+    targetMargin: 48,
+    laborHours: 4.5,
+    laborRate: 3500,
+    packagingCost: 2400,
+    decorationCost: 3800,
+    overheadCost: 2400,
+    deliveryCost: 0,
+    extraCost: 1200,
+    ingredients: [
+      { id: 'cake_25_1', name: 'Bizcocho e insumos base', quantity: '1 torta', cost: 7600 },
+      { id: 'cake_25_2', name: 'Relleno', quantity: '2 a 3 capas', cost: 6200 },
+      { id: 'cake_25_3', name: 'Cobertura', quantity: '1 terminación', cost: 5200 },
+    ],
+  },
+  {
+    key: 'cake_35',
+    label: 'Torta 35 personas',
+    productName: 'Torta personalizada 35 personas',
+    servings: 35,
+    salePrice: 52000,
+    targetMargin: 50,
+    laborHours: 5.5,
+    laborRate: 3500,
+    packagingCost: 3200,
+    decorationCost: 5200,
+    overheadCost: 3200,
+    deliveryCost: 0,
+    extraCost: 1500,
+    ingredients: [
+      { id: 'cake_35_1', name: 'Bizcocho e insumos base', quantity: '1 torta grande', cost: 10800 },
+      { id: 'cake_35_2', name: 'Relleno', quantity: '3 capas', cost: 8200 },
+      { id: 'cake_35_3', name: 'Cobertura', quantity: '1 terminación', cost: 6800 },
+    ],
+  },
+  {
+    key: 'alfajores',
+    label: 'Caja de alfajores',
+    productName: 'Caja de alfajores premium',
+    servings: 6,
+    salePrice: 12000,
+    targetMargin: 52,
+    laborHours: 1.4,
+    laborRate: 3500,
+    packagingCost: 1200,
+    decorationCost: 500,
+    overheadCost: 600,
+    deliveryCost: 0,
+    extraCost: 300,
+    ingredients: [
+      { id: 'alf_1', name: 'Masa e insumos', quantity: '6 unidades', cost: 2100 },
+      { id: 'alf_2', name: 'Manjar / relleno', quantity: '6 unidades', cost: 1200 },
+      { id: 'alf_3', name: 'Cobertura o coco', quantity: 'decoración', cost: 700 },
+    ],
+  },
+  {
+    key: 'cheesecake',
+    label: 'Cheesecake',
+    productName: 'Cheesecake de frutos rojos',
+    servings: 10,
+    salePrice: 22000,
+    targetMargin: 47,
+    laborHours: 2.8,
+    laborRate: 3500,
+    packagingCost: 1600,
+    decorationCost: 1800,
+    overheadCost: 1200,
+    deliveryCost: 0,
+    extraCost: 700,
+    ingredients: [
+      { id: 'cheese_1', name: 'Base de galleta', quantity: '1 molde', cost: 1800 },
+      { id: 'cheese_2', name: 'Queso crema y lácteos', quantity: '1 mezcla', cost: 6200 },
+      { id: 'cheese_3', name: 'Frutos rojos', quantity: 'cobertura', cost: 3200 },
+    ],
+  },
 ];
 
 const STATUS_STYLES = {
@@ -149,6 +254,75 @@ const CANCELLATION_REASON_LABELS = Object.fromEntries(
 function formatCLP(value) {
   const numeric = Number(value) || 0;
   return `$${numeric.toLocaleString('es-CL')}`;
+}
+
+function toPositiveNumber(value) {
+  return Math.max(0, Number(value) || 0);
+}
+
+function roundToNearest(value, step = 500) {
+  if (!value) return 0;
+  return Math.ceil(value / step) * step;
+}
+
+function createCostItem(overrides = {}) {
+  return {
+    id: overrides.id ?? `cost_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    name: overrides.name ?? '',
+    quantity: overrides.quantity ?? '',
+    cost: toPositiveNumber(overrides.cost),
+  };
+}
+
+function buildCostDraft(preset = COST_PRESETS[0]) {
+  return {
+    productName: preset.productName,
+    servings: preset.servings,
+    salePrice: preset.salePrice,
+    targetMargin: preset.targetMargin,
+    laborHours: preset.laborHours,
+    laborRate: preset.laborRate,
+    packagingCost: preset.packagingCost,
+    decorationCost: preset.decorationCost,
+    overheadCost: preset.overheadCost,
+    deliveryCost: preset.deliveryCost,
+    extraCost: preset.extraCost,
+    ingredients: preset.ingredients.map(item => createCostItem(item)),
+  };
+}
+
+function sanitizeCostDraft(value) {
+  const fallback = buildCostDraft();
+  if (!value || typeof value !== 'object') return fallback;
+
+  return {
+    ...fallback,
+    ...value,
+    servings: toPositiveNumber(value.servings) || fallback.servings,
+    salePrice: toPositiveNumber(value.salePrice),
+    targetMargin: Math.min(85, Math.max(5, Number(value.targetMargin) || fallback.targetMargin)),
+    laborHours: toPositiveNumber(value.laborHours),
+    laborRate: toPositiveNumber(value.laborRate),
+    packagingCost: toPositiveNumber(value.packagingCost),
+    decorationCost: toPositiveNumber(value.decorationCost),
+    overheadCost: toPositiveNumber(value.overheadCost),
+    deliveryCost: toPositiveNumber(value.deliveryCost),
+    extraCost: toPositiveNumber(value.extraCost),
+    ingredients: Array.isArray(value.ingredients) && value.ingredients.length
+      ? value.ingredients.map(item => createCostItem(item))
+      : fallback.ingredients,
+  };
+}
+
+function readStoredCostDraft() {
+  if (typeof localStorage === 'undefined') return buildCostDraft();
+
+  try {
+    const raw = localStorage.getItem(COST_DRAFT_KEY);
+    return raw ? sanitizeCostDraft(JSON.parse(raw)) : buildCostDraft();
+  } catch {
+    return buildCostDraft();
+  }
 }
 
 function toOrderDate(value) {
@@ -1084,37 +1258,330 @@ function AdminTabs({ activeTab, onChange }) {
 }
 
 function CostsPlanningPanel() {
-  const costBlocks = [
-    ['Recetas base', 'Guardar ingredientes por producto: bizcocho, relleno, cobertura, empaque y decoración.'],
-    ['Mano de obra', 'Sumar tiempo real de preparación, decoración, compra y entrega.'],
-    ['Margen', 'Calcular precio sugerido con ganancia, merma y urgencias.'],
-    ['Compras', 'Detectar qué insumos se repiten más según pedidos reales.'],
-  ];
+  const [draft, setDraft] = useState(readStoredCostDraft);
+
+  useEffect(() => {
+    localStorage.setItem(COST_DRAFT_KEY, JSON.stringify(draft));
+  }, [draft]);
+
+  const totals = useMemo(() => {
+    const ingredientTotal = draft.ingredients.reduce((sum, item) => sum + toPositiveNumber(item.cost), 0);
+    const laborCost = toPositiveNumber(draft.laborHours) * toPositiveNumber(draft.laborRate);
+    const fixedCosts = (
+      toPositiveNumber(draft.packagingCost) +
+      toPositiveNumber(draft.decorationCost) +
+      toPositiveNumber(draft.overheadCost) +
+      toPositiveNumber(draft.deliveryCost) +
+      toPositiveNumber(draft.extraCost)
+    );
+    const totalCost = ingredientTotal + laborCost + fixedCosts;
+    const salePrice = toPositiveNumber(draft.salePrice);
+    const targetMargin = Math.min(85, Math.max(5, Number(draft.targetMargin) || 45));
+    const suggestedPrice = roundToNearest(totalCost / (1 - targetMargin / 100));
+    const profit = salePrice - totalCost;
+    const margin = salePrice ? Math.round((profit / salePrice) * 100) : 0;
+    const costPerServing = toPositiveNumber(draft.servings) ? Math.round(totalCost / toPositiveNumber(draft.servings)) : 0;
+    const pricePerServing = toPositiveNumber(draft.servings) ? Math.round(salePrice / toPositiveNumber(draft.servings)) : 0;
+    const status = margin < targetMargin - 4
+      ? { label: 'Precio bajo', detail: 'Conviene subir precio o revisar costos.', tone: 'danger' }
+      : margin > targetMargin + 8
+        ? { label: 'Buen margen', detail: 'El precio deja espacio saludable.', tone: 'good' }
+        : { label: 'Cerca del objetivo', detail: 'El precio está dentro de un rango razonable.', tone: 'ok' };
+
+    return {
+      ingredientTotal,
+      laborCost,
+      fixedCosts,
+      totalCost,
+      suggestedPrice,
+      profit,
+      margin,
+      costPerServing,
+      pricePerServing,
+      status,
+      breakdown: [
+        { label: 'Ingredientes', value: ingredientTotal, color: 'bg-[#be185d]' },
+        { label: 'Mano de obra', value: laborCost, color: 'bg-[#3f2128]' },
+        { label: 'Empaque y extras', value: fixedCosts, color: 'bg-[#f472b6]' },
+      ],
+    };
+  }, [draft]);
+
+  const maxBreakdown = Math.max(1, ...totals.breakdown.map(item => item.value));
+
+  function updateDraftField(field, value) {
+    setDraft(prev => ({ ...prev, [field]: value }));
+  }
+
+  function updateIngredient(id, field, value) {
+    setDraft(prev => ({
+      ...prev,
+      ingredients: prev.ingredients.map(item => (
+        item.id === id
+          ? { ...item, [field]: field === 'cost' ? toPositiveNumber(value) : value }
+          : item
+      )),
+    }));
+  }
+
+  function addIngredient() {
+    setDraft(prev => ({
+      ...prev,
+      ingredients: [...prev.ingredients, createCostItem({ name: 'Nuevo insumo', quantity: 'cantidad', cost: 0 })],
+    }));
+  }
+
+  function removeIngredient(id) {
+    setDraft(prev => ({
+      ...prev,
+      ingredients: prev.ingredients.length > 1
+        ? prev.ingredients.filter(item => item.id !== id)
+        : prev.ingredients,
+    }));
+  }
+
+  function applyPreset(preset) {
+    setDraft(buildCostDraft(preset));
+  }
+
+  const statusClass = {
+    danger: 'border-red-100 bg-red-50 text-red-600',
+    good: 'border-emerald-100 bg-emerald-50 text-emerald-700',
+    ok: 'border-amber-100 bg-amber-50 text-amber-700',
+  }[totals.status.tone];
 
   return (
     <section>
-      <div className="mb-3">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#be185d]/62">Próxima fase</p>
-        <h2 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Costos y precios</h2>
-        <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#3f2128]/58">
-          Dejé esta pestaña separada para que el cálculo de costos no se mezcle con pedidos ni análisis. La siguiente fase puede convertir pedidos reales en precios mejor calculados.
-        </p>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2">
-        {costBlocks.map(([title, detail]) => (
-          <div key={title} className="rounded-3xl border border-[#efc6d8] bg-white p-5 shadow-[0_16px_38px_rgba(63,33,40,0.08)]">
-            <div className="flex items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#be185d]/10">
-                <Calculator className="h-4 w-4 text-[#be185d]" />
-              </span>
-              <div>
-                <h3 className="text-sm font-bold text-[#3f2128]">{title}</h3>
-                <p className="mt-1 text-xs font-semibold leading-5 text-[#3f2128]/56">{detail}</p>
-              </div>
+      <div className="mb-4 overflow-hidden rounded-[2rem] border border-[#efc6d8] bg-white shadow-[0_20px_54px_rgba(63,33,40,0.10)]">
+        <div className="grid gap-4 bg-[linear-gradient(135deg,#fff_0%,#fff7fb_45%,#fce7f3_100%)] p-5 lg:grid-cols-[1.1fr_0.9fr] lg:p-6">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#be185d]/62">Costos internos</p>
+            <h2 className="mt-2 font-serif text-3xl font-bold leading-tight text-[#3f2128]">Calculadora de precios</h2>
+            <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#3f2128]/58">
+              Estima ingredientes, mano de obra, empaque, extras, margen y precio sugerido antes de vender.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-3xl border border-white/80 bg-white/82 p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#be185d]/58">Precio sugerido</p>
+              <p className="mt-2 font-serif text-2xl font-bold text-[#3f2128]">{formatCLP(totals.suggestedPrice)}</p>
+            </div>
+            <div className={`rounded-3xl border p-4 ${statusClass}`}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] opacity-70">Lectura</p>
+              <p className="mt-2 text-lg font-bold">{totals.status.label}</p>
             </div>
           </div>
-        ))}
+        </div>
+      </div>
+
+      <div className="mb-4 overflow-x-auto pb-1">
+        <div className="flex min-w-max gap-2">
+          {COST_PRESETS.map(preset => (
+            <button
+              key={preset.key}
+              type="button"
+              onClick={() => applyPreset(preset)}
+              className="rounded-2xl border border-[#efc6d8] bg-white px-4 py-3 text-left text-xs font-bold text-[#3f2128] shadow-[0_10px_24px_rgba(63,33,40,0.06)] transition hover:-translate-y-0.5 hover:border-[#be185d]/35"
+            >
+              <span className="block">{preset.label}</span>
+              <span className="mt-0.5 block font-semibold text-[#be185d]/62">{formatCLP(preset.salePrice)}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
+        <div className="space-y-4">
+          <section className="rounded-[2rem] border border-[#efc6d8] bg-white p-5 shadow-[0_16px_38px_rgba(63,33,40,0.08)]">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#be185d]/58">Producto</p>
+                <h3 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Datos de venta</h3>
+              </div>
+              <Calculator className="h-5 w-5 text-[#be185d]" />
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="md:col-span-2">
+                <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#3f2128]/54">Nombre del producto</span>
+                <input
+                  value={draft.productName}
+                  onChange={(event) => updateDraftField('productName', event.target.value)}
+                  className="min-h-[48px] w-full rounded-2xl border border-[#efc6d8] bg-[#fff7fb] px-4 py-3 text-sm font-bold text-[#3f2128] outline-none transition focus:border-[#be185d]/45"
+                />
+              </label>
+              {[
+                ['servings', 'Porciones', 'number'],
+                ['salePrice', 'Precio actual', 'number'],
+                ['targetMargin', 'Margen objetivo %', 'number'],
+                ['laborHours', 'Horas de trabajo', 'number'],
+              ].map(([field, label, type]) => (
+                <label key={field}>
+                  <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#3f2128]/54">{label}</span>
+                  <input
+                    type={type}
+                    min="0"
+                    step={field === 'laborHours' ? '0.5' : '1'}
+                    value={draft[field]}
+                    onChange={(event) => updateDraftField(field, event.target.value)}
+                    className="min-h-[48px] w-full rounded-2xl border border-[#efc6d8] bg-[#fff7fb] px-4 py-3 text-sm font-bold text-[#3f2128] outline-none transition focus:border-[#be185d]/45"
+                  />
+                </label>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-[2rem] border border-[#efc6d8] bg-white p-5 shadow-[0_16px_38px_rgba(63,33,40,0.08)]">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#be185d]/58">Receta base</p>
+                <h3 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Insumos</h3>
+              </div>
+              <button
+                type="button"
+                onClick={addIngredient}
+                className="rounded-2xl bg-[#be185d] px-4 py-2 text-xs font-bold text-white shadow-[0_12px_26px_rgba(190,24,93,0.18)]"
+              >
+                Agregar
+              </button>
+            </div>
+
+            <div className="grid gap-3">
+              {draft.ingredients.map(item => (
+                <div key={item.id} className="grid gap-2 rounded-3xl border border-[#f1d3df] bg-[#fff7fb] p-3 md:grid-cols-[1.35fr_0.9fr_0.75fr_auto] md:items-end">
+                  <label>
+                    <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-[#3f2128]/48">Insumo</span>
+                    <input
+                      value={item.name}
+                      onChange={(event) => updateIngredient(item.id, 'name', event.target.value)}
+                      className="min-h-[42px] w-full rounded-2xl border border-transparent bg-white px-3 py-2 text-sm font-bold text-[#3f2128] outline-none focus:border-[#be185d]/35"
+                    />
+                  </label>
+                  <label>
+                    <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-[#3f2128]/48">Cantidad</span>
+                    <input
+                      value={item.quantity}
+                      onChange={(event) => updateIngredient(item.id, 'quantity', event.target.value)}
+                      className="min-h-[42px] w-full rounded-2xl border border-transparent bg-white px-3 py-2 text-sm font-bold text-[#3f2128] outline-none focus:border-[#be185d]/35"
+                    />
+                  </label>
+                  <label>
+                    <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-[#3f2128]/48">Costo</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={item.cost}
+                      onChange={(event) => updateIngredient(item.id, 'cost', event.target.value)}
+                      className="min-h-[42px] w-full rounded-2xl border border-transparent bg-white px-3 py-2 text-sm font-bold text-[#3f2128] outline-none focus:border-[#be185d]/35"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => removeIngredient(item.id)}
+                    disabled={draft.ingredients.length <= 1}
+                    className="min-h-[42px] rounded-2xl border border-red-100 bg-white px-3 py-2 text-xs font-bold text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-[2rem] border border-[#efc6d8] bg-white p-5 shadow-[0_16px_38px_rgba(63,33,40,0.08)]">
+            <div className="mb-4">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#be185d]/58">Gastos</p>
+              <h3 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Trabajo y extras</h3>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              {[
+                ['laborRate', 'Valor hora'],
+                ['packagingCost', 'Empaque'],
+                ['decorationCost', 'Decoración'],
+                ['overheadCost', 'Luz, gas y merma'],
+                ['deliveryCost', 'Delivery interno'],
+                ['extraCost', 'Imprevistos'],
+              ].map(([field, label]) => (
+                <label key={field}>
+                  <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#3f2128]/54">{label}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={draft[field]}
+                    onChange={(event) => updateDraftField(field, event.target.value)}
+                    className="min-h-[48px] w-full rounded-2xl border border-[#efc6d8] bg-[#fff7fb] px-4 py-3 text-sm font-bold text-[#3f2128] outline-none transition focus:border-[#be185d]/45"
+                  />
+                </label>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <aside className="space-y-4 xl:sticky xl:top-5 xl:self-start">
+          <section className="overflow-hidden rounded-[2rem] border border-[#efc6d8] bg-white shadow-[0_22px_58px_rgba(63,33,40,0.12)]">
+            <div className="bg-[linear-gradient(135deg,#3f2128_0%,#6b2b3a_55%,#be185d_100%)] p-5 text-white">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/58">Resultado</p>
+              <h3 className="mt-2 font-serif text-3xl font-bold">{draft.productName || 'Producto'}</h3>
+              <p className="mt-2 text-sm font-semibold text-white/72">{totals.status.detail}</p>
+            </div>
+
+            <div className="grid gap-3 p-5">
+              {[
+                ['Costo total', formatCLP(totals.totalCost)],
+                ['Precio actual', formatCLP(draft.salePrice)],
+                ['Ganancia estimada', formatCLP(totals.profit)],
+                ['Margen actual', `${totals.margin}%`],
+                ['Costo por porción', formatCLP(totals.costPerServing)],
+                ['Precio por porción', formatCLP(totals.pricePerServing)],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-center justify-between gap-3 rounded-2xl bg-[#fff7fb] px-4 py-3">
+                  <span className="text-xs font-bold uppercase tracking-[0.12em] text-[#3f2128]/52">{label}</span>
+                  <span className="font-serif text-lg font-bold text-[#3f2128]">{value}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-[2rem] border border-[#efc6d8] bg-white p-5 shadow-[0_16px_38px_rgba(63,33,40,0.08)]">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#be185d]/58">Desglose</p>
+                <h3 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Dónde se va el costo</h3>
+              </div>
+              <ReceiptText className="h-5 w-5 text-[#be185d]" />
+            </div>
+            <div className="grid gap-3">
+              {totals.breakdown.map(item => (
+                <div key={item.label}>
+                  <div className="mb-1 flex items-center justify-between gap-3 text-xs font-bold text-[#3f2128]/58">
+                    <span>{item.label}</span>
+                    <span>{formatCLP(item.value)}</span>
+                  </div>
+                  <div className="h-3 overflow-hidden rounded-full bg-[#f7dce8]">
+                    <span
+                      className={`block h-full rounded-full ${item.color}`}
+                      style={{ width: item.value ? `${Math.max(8, (item.value / maxBreakdown) * 100)}%` : '0%' }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-[2rem] border border-[#efc6d8] bg-white p-5 shadow-[0_16px_38px_rgba(63,33,40,0.08)]">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#be185d]/10">
+                <BarChart3 className="h-5 w-5 text-[#be185d]" />
+              </span>
+              <div>
+                <h3 className="font-serif text-2xl font-bold text-[#3f2128]">Siguiente mejora</h3>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#3f2128]/58">
+                  En la próxima pasada podemos guardar recetas reales en Supabase y comparar precio vendido contra costo real por pedido.
+                </p>
+              </div>
+            </div>
+          </section>
+        </aside>
       </div>
     </section>
   );
