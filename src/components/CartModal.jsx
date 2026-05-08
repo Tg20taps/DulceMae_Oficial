@@ -276,6 +276,8 @@ function formatCheckoutDateHint(value) {
 const CHECKOUT_TIME_MIN = '10:00';
 const CHECKOUT_TIME_MAX = '22:00';
 const CHECKOUT_TIME_LABEL = '10:00 a 22:00';
+const CHECKOUT_HOURS = Array.from({ length: 13 }, (_, index) => String(index + 10).padStart(2, '0'));
+const CHECKOUT_MINUTES = Array.from({ length: 12 }, (_, index) => String(index * 5).padStart(2, '0'));
 
 function formatTimeMeridiem(value) {
   if (!value) return '';
@@ -295,6 +297,18 @@ function isCheckoutDateUnavailable(value, minValue) {
 
 function isCheckoutTimeUnavailable(value) {
   return Boolean(value && (value < CHECKOUT_TIME_MIN || value > CHECKOUT_TIME_MAX));
+}
+
+function getCheckoutHour(value) {
+  return value ? value.split(':')[0] : '';
+}
+
+function getCheckoutMinute(value) {
+  return value ? value.split(':')[1] || '00' : '00';
+}
+
+function getCheckoutMinuteOptions(hour) {
+  return hour === '22' ? ['00'] : CHECKOUT_MINUTES;
 }
 
 function isMobileViewport() {
@@ -714,6 +728,9 @@ const CartModal = () => {
   const checkoutDateUnavailable = isCheckoutDateUnavailable(formData.date, minCheckoutDate);
   const checkoutTimeUnavailable = isCheckoutTimeUnavailable(formData.time);
   const selectedTimeMeridiem = formatTimeMeridiem(formData.time);
+  const selectedCheckoutHour = getCheckoutHour(formData.time);
+  const selectedCheckoutMinute = getCheckoutMinute(formData.time);
+  const checkoutMinuteOptions = getCheckoutMinuteOptions(selectedCheckoutHour);
   const orderSummary = useMemo(() => {
     const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
     const productSubtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -747,6 +764,22 @@ const CartModal = () => {
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setErrors(prev => ({ ...prev, [field]: undefined }));
+  };
+
+  const updateCheckoutHour = (hour) => {
+    if (!hour) {
+      updateField('time', '');
+      return;
+    }
+
+    const minutes = getCheckoutMinuteOptions(hour);
+    const minute = minutes.includes(selectedCheckoutMinute) ? selectedCheckoutMinute : minutes[0];
+    updateField('time', `${hour}:${minute}`);
+  };
+
+  const updateCheckoutMinute = (minute) => {
+    const hour = selectedCheckoutHour || CHECKOUT_HOURS[0];
+    updateField('time', `${hour}:${minute}`);
   };
 
   const updateDeliveryAddressMode = (mode) => {
@@ -1490,27 +1523,46 @@ const CartModal = () => {
                         <label className="block text-sm font-bold text-[#3f2128]/70 mb-2 ml-1">
                           Hora preferida
                         </label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <Clock3 className="w-4 h-4 text-pink-300" />
-                          </div>
-                          <input
-                            type="time"
-                            required
-                            min={CHECKOUT_TIME_MIN}
-                            max={CHECKOUT_TIME_MAX}
-                            step="60"
-                            value={formData.time}
-                            onChange={(e) => updateField('time', e.target.value)}
-                            onInput={(e) => updateField('time', e.currentTarget.value)}
-                            aria-invalid={checkoutTimeUnavailable || Boolean(errors.time)}
-                            className="min-h-[52px] w-full pl-11 pr-4 py-3 rounded-2xl outline-none transition-all text-sm font-bold [color-scheme:light]"
-                            style={{
-                              background: 'rgba(255,255,255,0.75)',
-                              border: errors.time || checkoutTimeUnavailable ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)',
-                              color: '#3f2128',
-                            }}
-                          />
+                        <div
+                          className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-2xl px-3 py-2"
+                          style={{
+                            background: 'rgba(255,255,255,0.75)',
+                            border: errors.time || checkoutTimeUnavailable ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)',
+                            color: '#3f2128',
+                          }}
+                        >
+                          <label className="relative block">
+                            <span className="sr-only">Hora</span>
+                            <Clock3 className="pointer-events-none absolute left-1 top-1/2 h-4 w-4 -translate-y-1/2 text-pink-300" />
+                            <select
+                              required
+                              value={selectedCheckoutHour}
+                              onChange={(event) => updateCheckoutHour(event.target.value)}
+                              aria-invalid={checkoutTimeUnavailable || Boolean(errors.time)}
+                              className="min-h-[40px] w-full appearance-none rounded-xl bg-transparent pl-7 pr-3 text-sm font-bold outline-none"
+                            >
+                              <option value="">Hora</option>
+                              {CHECKOUT_HOURS.map(hour => (
+                                <option key={hour} value={hour}>{hour}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <span className="text-lg font-black text-[#be185d]/50">:</span>
+                          <label className="block">
+                            <span className="sr-only">Minutos</span>
+                            <select
+                              required
+                              value={selectedCheckoutHour ? selectedCheckoutMinute : ''}
+                              onChange={(event) => updateCheckoutMinute(event.target.value)}
+                              aria-invalid={checkoutTimeUnavailable || Boolean(errors.time)}
+                              className="min-h-[40px] w-full appearance-none rounded-xl bg-transparent px-3 text-sm font-bold outline-none"
+                            >
+                              <option value="">Min</option>
+                              {checkoutMinuteOptions.map(minute => (
+                                <option key={minute} value={minute}>{minute}</option>
+                              ))}
+                            </select>
+                          </label>
                         </div>
                         {checkoutTimeUnavailable ? (
                           <p className="mt-2 ml-1 flex items-center gap-1.5 text-xs font-semibold text-red-500">

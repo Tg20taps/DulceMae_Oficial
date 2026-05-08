@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Check } from 'lucide-react';
 import Header from './components/Header';
 import Hero from './components/Hero';
-import CartModal from './components/CartModal';
 import FloatingCart from './components/FloatingCart';
 import Footer from './components/Footer';
 import GlazePreloader from './components/GlazePreloader';
@@ -14,6 +13,7 @@ import { trackEvent } from './utils/analytics';
 const About = lazy(() => import('./components/About'));
 const Catalog = lazy(() => import('./components/Catalog'));
 const Location = lazy(() => import('./components/Location'));
+const CartModal = lazy(() => import('./components/CartModal'));
 const AdminShell = lazy(() => import('./components/admin/AdminShell'));
 
 function BackgroundCanvas() {
@@ -219,7 +219,9 @@ function AppInterior() {
         <Footer />
       </div>
 
-      <CartModal />
+      <Suspense fallback={null}>
+        <CartModal />
+      </Suspense>
       <FloatingCart />
 
       <AnimatePresence>

@@ -20,7 +20,9 @@ export function trackEvent(eventName, properties = {}) {
     page: window.location.pathname,
     ...properties,
   };
-  console.log('%c[DulceMae Analytics]', 'color:#be185d;font-weight:bold;', payload);
+  if (import.meta.env.DEV) {
+    console.log('%c[DulceMae Analytics]', 'color:#be185d;font-weight:bold;', payload);
+  }
   /*
   // ── Activar cuando tengas el webhook listo ──────────────
   try {

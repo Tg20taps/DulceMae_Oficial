@@ -25,12 +25,15 @@ const OptimizedImage = forwardRef(function OptimizedImage(
     sizes = '(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw',
     loading = 'lazy',
     className = '',
+    fetchPriority,
+    fetchpriority,
     ...props
   },
   ref
 ) {
   const srcSet = WIDTHS.map(width => `${imageUrl(src, width)} ${width}w`).join(', ');
   const fallback = imageUrl(src, 760);
+  const priority = fetchpriority ?? fetchPriority;
 
   return (
     <img
@@ -41,6 +44,7 @@ const OptimizedImage = forwardRef(function OptimizedImage(
       alt={alt}
       loading={loading}
       decoding="async"
+      fetchpriority={priority}
       className={className}
       {...props}
     />
