@@ -111,6 +111,26 @@ html {
   }
 }
 
+.dm-cart-scroll {
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  scroll-behavior: auto;
+}
+
+.dm-cart-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dm-cart-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 240, 247, 0.72);
+  border-left: 1px solid rgba(249, 168, 212, 0.12);
+}
+
+.dm-cart-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #f9a8d4, #be185d);
+  border: 2px solid rgba(255, 240, 247, 0.84);
+}
+
 @layer utilities {
 
   /* ── Gradiente de texto rosa ───────────────────────────── */

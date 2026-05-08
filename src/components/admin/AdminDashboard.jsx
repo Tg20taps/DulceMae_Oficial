@@ -6,6 +6,7 @@ import {
   Calculator,
   ClipboardList,
   LogOut,
+  PackageCheck,
   RefreshCw,
   Sparkles,
   UserRound,
@@ -16,6 +17,7 @@ import { AdminFrame } from './AdminAuth';
 import AdminCosts from './AdminCosts';
 import AdminInsights from './AdminInsights';
 import AdminOrders, { OrderDetailSheet } from './AdminOrders';
+import AdminStock from './AdminStock';
 import {
   buildAdminInsights,
   CANCELLATION_REASON_LABELS,
@@ -35,12 +37,13 @@ const ADMIN_TABS = [
   { value: 'orders', label: 'Pedidos', detail: 'Atender y responder', Icon: ClipboardList },
   { value: 'insights', label: 'Analisis', detail: 'Dia, semana y mes', Icon: BarChart3 },
   { value: 'costs', label: 'Costos', detail: 'Calcular precios', Icon: Calculator },
+  { value: 'stock', label: 'Stock', detail: 'Semaforo e insumos', Icon: PackageCheck },
 ];
 
 function AdminTabs({ activeTab, onChange }) {
   return (
     <div className="mb-5 overflow-x-auto pb-1">
-      <div className="grid min-w-[42rem] grid-cols-3 gap-2 rounded-[1.6rem] border border-[#efc6d8] bg-white/78 p-2 shadow-[0_16px_42px_rgba(63,33,40,0.08)]">
+      <div className="grid min-w-[54rem] grid-cols-4 gap-2 rounded-[1.6rem] border border-[#efc6d8] bg-white/78 p-2 shadow-[0_16px_42px_rgba(63,33,40,0.08)]">
         {ADMIN_TABS.map(({ value, label, detail, Icon }) => {
           const active = activeTab === value;
           return (
@@ -330,6 +333,7 @@ export default function AdminDashboard({ session, onSignOut }) {
 
       {activeTab === 'insights' && <AdminInsights insights={insights} metrics={metrics} />}
       {activeTab === 'costs' && <AdminCosts />}
+      {activeTab === 'stock' && <AdminStock />}
 
       {selectedOrder && (
         <OrderDetailSheet

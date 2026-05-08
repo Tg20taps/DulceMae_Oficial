@@ -433,7 +433,6 @@ function CartItemRow({ item, index, onRemove, onQty, reducedMotion = false }) {
         background: hov
           ? 'rgba(255,255,255,0.88)'
           : 'rgba(255,255,255,0.70)',
-        backdropFilter: 'blur(14px)',
         border: hov
           ? '1px solid rgba(190,24,93,0.30)'
           : '1px solid rgba(249,168,212,0.25)',
@@ -707,16 +706,16 @@ const CartModal = () => {
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
 
   const reduceCartMotion = useMemo(
-    () => Boolean(prefersReducedMotion || isMobileViewport()),
-    [prefersReducedMotion]
+    () => Boolean(prefersReducedMotion || isMobileViewport() || isCartOpen),
+    [prefersReducedMotion, isCartOpen]
   );
   const minCheckoutDate = useMemo(() => getMinCheckoutDate(), []);
   const minCheckoutDateHint = useMemo(() => formatCheckoutDateHint(minCheckoutDate), [minCheckoutDate]);
   const checkoutDateUnavailable = isCheckoutDateUnavailable(formData.date, minCheckoutDate);
   const checkoutTimeUnavailable = isCheckoutTimeUnavailable(formData.time);
-  const selectedTimeMeridiem = formatTimeMeridiem(formData.time);
   const selectedCheckoutHour = getCheckoutHour(formData.time);
   const selectedCheckoutMinute = getCheckoutMinute(formData.time);
+  const selectedTimePeriod = selectedCheckoutHour ? (Number(selectedCheckoutHour) < 12 ? 'a.m.' : 'p.m.') : '--';
   const checkoutMinuteOptions = getCheckoutMinuteOptions(selectedCheckoutHour);
   const orderSummary = useMemo(() => {
     const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -989,7 +988,7 @@ const CartModal = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleClose}
-            className="fixed inset-0 bg-black/45 backdrop-blur-[3px] z-[210]"
+            className="fixed inset-0 z-[210] bg-[#2b1620]/45"
           />
 
           {/* Drawer */}
@@ -1000,9 +999,7 @@ const CartModal = () => {
             transition={{ type: 'spring', damping: 28, stiffness: 220 }}
             className="fixed top-0 right-0 h-full w-full max-w-md shadow-2xl z-[230] flex flex-col"
             style={{
-              background: 'linear-gradient(160deg, rgba(255,255,255,0.92) 0%, rgba(252,231,243,0.88) 100%)',
-              backdropFilter: 'blur(28px) saturate(180%)',
-              WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+              background: 'linear-gradient(160deg, rgba(255,255,255,0.98) 0%, rgba(255,247,251,0.98) 48%, rgba(252,231,243,0.96) 100%)',
               borderLeft: '1px solid rgba(249,168,212,0.35)',
             }}
           >
@@ -1065,9 +1062,7 @@ const CartModal = () => {
                 aria-label="Cerrar carrito"
                 className="absolute top-1/2 right-7 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center"
                 style={{
-                  background: 'rgba(255,255,255,0.60)',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
+                  background: 'rgba(255,255,255,0.82)',
                   border: '1px solid rgba(190,24,93,0.18)',
                   boxShadow: '0 2px 12px rgba(190,24,93,0.10)',
                 }}
@@ -1077,7 +1072,10 @@ const CartModal = () => {
             </div>
 
             {/* ── BODY ───────────────────────────────────────────── */}
-            <div className="flex-1 overflow-y-auto px-8 py-6" style={{ scrollbarWidth: 'thin' }}>
+            <div
+              className="dm-cart-scroll flex-1 overflow-y-auto overscroll-contain px-8 py-6"
+              style={{ scrollbarWidth: 'thin', WebkitOverflowScrolling: 'touch', contain: 'layout paint style' }}
+            >
 
               {/* ── STEP 1: Carrito ── */}
               {step === 1 && (
@@ -1511,7 +1509,7 @@ const CartModal = () => {
                           Hora preferida
                         </label>
                         <div
-                          className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-2xl px-3 py-2"
+                          className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2 rounded-2xl px-3 py-2"
                           style={{
                             background: 'rgba(255,255,255,0.75)',
                             border: errors.time || checkoutTimeUnavailable ? '1.5px solid rgba(239,68,68,0.55)' : '1.5px solid rgba(249,168,212,0.35)',
@@ -1550,22 +1548,16 @@ const CartModal = () => {
                               ))}
                             </select>
                           </label>
+                          <span className="rounded-full border border-pink-100 bg-white/70 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-[#be185d] shadow-sm">
+                            {selectedTimePeriod}
+                          </span>
                         </div>
                         {checkoutTimeUnavailable ? (
                           <p className="mt-2 ml-1 flex items-center gap-1.5 text-xs font-semibold text-red-500">
                             <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                             Horario no disponible. Elige entre {CHECKOUT_TIME_LABEL}.
                           </p>
-                        ) : (
-                          <div className="mt-2 ml-1 space-y-1 text-xs font-semibold leading-snug text-[#3f2128]/42">
-                            {formData.time && selectedTimeMeridiem && (
-                              <p className="text-[#be185d]">
-                                Hora seleccionada: {formData.time} = {selectedTimeMeridiem}.
-                              </p>
-                            )}
-                            <p>Horario disponible: {CHECKOUT_TIME_LABEL}. Formato 24 h: 15:30 = 3:30 p.m.</p>
-                          </div>
-                        )}
+                        ) : null}
                         {errors.time && !checkoutTimeUnavailable && (
                           <p className="mt-2 ml-1 flex items-center gap-1.5 text-xs font-semibold text-red-500">
                             <AlertCircle className="h-3.5 w-3.5" /> {errors.time}
@@ -1606,8 +1598,7 @@ const CartModal = () => {
               className="px-8 py-5 border-t"
               style={{
                 borderColor: 'rgba(249,168,212,0.35)',
-                background: 'rgba(255,255,255,0.55)',
-                backdropFilter: 'blur(20px)',
+                background: 'rgba(255,255,255,0.92)',
               }}
             >
               {step === 1 ? (
@@ -1693,7 +1684,7 @@ const CartModal = () => {
                   {/* CTA con aura pulsante */}
                   <div className="relative">
                     {/* Aura exterior pulsante cuando hay items */}
-                    {cartItems.length > 0 && (
+                    {cartItems.length > 0 && !reduceCartMotion && (
                       <motion.div
                         animate={{ scale: [1, 1.04, 1], opacity: [0.35, 0.12, 0.35] }}
                         transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
@@ -1727,12 +1718,14 @@ const CartModal = () => {
 
                   {/* CTA WhatsApp con aura verde */}
                   <div className="relative flex-1">
-                    <motion.div
+                    {!reduceCartMotion && (
+                      <motion.div
                       animate={{ scale: [1, 1.05, 1], opacity: [0.30, 0.10, 0.30] }}
                       transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
                       className="absolute inset-0 rounded-2xl pointer-events-none"
                       style={{ background: 'linear-gradient(135deg,#be185d,#e11d72)', filter: 'blur(14px)' }}
                     />
+                    )}
                     <PrimaryButton variant="pink" type="submit" form="checkout-form" disabled={isSubmittingOrder}>
                       <span>{isSubmittingOrder ? 'Preparando pedido...' : 'Pedir por WhatsApp'}</span>
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">

@@ -207,7 +207,9 @@ function AppInterior() {
   return (
     <>
       <AnimatePresence>{preloading && <GlazePreloader onComplete={handlePreloaderDone} />}</AnimatePresence>
-      <BackgroundCanvas />
+      {!preloading && (
+        <>
+          <BackgroundCanvas />
 
       <div className="relative z-[1] flex min-h-screen flex-col overflow-x-hidden">
         <Header />
@@ -267,6 +269,8 @@ function AppInterior() {
           </motion.div>
         )}
       </AnimatePresence>
+        </>
+      )}
     </>
   );
 }

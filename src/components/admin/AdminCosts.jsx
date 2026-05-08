@@ -171,8 +171,8 @@ export default function AdminCosts() {
 
   return (
     <section className="space-y-4">
-      <section className="rounded-[2rem] border border-[#efc6d8] bg-white p-4 shadow-[0_20px_54px_rgba(63,33,40,0.10)] sm:p-5">
-        <div className="grid gap-4 xl:grid-cols-[1fr_28rem] xl:items-start">
+      <section className="overflow-hidden rounded-[2rem] border border-[#efc6d8] bg-white shadow-[0_22px_58px_rgba(63,33,40,0.11)]">
+        <div className="grid gap-5 p-4 sm:p-5 xl:grid-cols-[1fr_30rem] xl:items-center">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#be185d]/62">Costos internos</p>
             <h2 className="mt-2 font-serif text-3xl font-bold leading-tight text-[#3f2128]">Calculadora simple</h2>
@@ -180,13 +180,18 @@ export default function AdminCosts() {
               Una sola vista para estimar ingredientes, empaque, decoracion, margen y precio sugerido.
             </p>
           </div>
-          <div className="rounded-3xl border border-[#efc6d8] bg-[#fff7fb] p-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#be185d]/58">Producto activo</p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto]">
+          <div className="rounded-[1.75rem] border border-[#efc6d8] bg-[linear-gradient(135deg,#fff7fb_0%,#fff_58%,#fdf2f8_100%)] p-3 shadow-inner">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#be185d]/58">Producto activo</p>
+              <span className="rounded-full bg-white px-3 py-1 text-[10px] font-bold text-[#3f2128]/45">
+                {savedDrafts.length} guardados
+              </span>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
               <select
                 value={savedActive ? draft.id : ''}
                 onChange={(event) => loadSavedDraft(event.target.value)}
-                className="min-h-[44px] rounded-2xl border border-[#efc6d8] bg-white px-3 py-2 text-sm font-bold text-[#3f2128] outline-none"
+                className="min-h-[48px] rounded-2xl border border-[#efc6d8] bg-white px-4 py-2 text-sm font-bold text-[#3f2128] outline-none transition focus:border-[#be185d]/45"
               >
                 {!savedActive && <option value="">Borrador actual</option>}
                 {savedDrafts.map(savedDraft => (
@@ -194,16 +199,16 @@ export default function AdminCosts() {
                 ))}
               </select>
               <div className="grid grid-cols-4 gap-2">
-                <button type="button" onClick={startNewDraft} className="flex h-11 items-center justify-center rounded-2xl border border-[#efc6d8] bg-white text-[#be185d]" aria-label="Nuevo calculo">
+                <button type="button" onClick={startNewDraft} title="Nuevo calculo" className="flex h-12 items-center justify-center rounded-2xl border border-[#efc6d8] bg-white text-[#be185d] transition hover:-translate-y-0.5 hover:border-[#be185d]/45 hover:shadow-[0_10px_22px_rgba(63,33,40,0.10)]" aria-label="Nuevo calculo">
                   <Plus className="h-4 w-4" />
                 </button>
-                <button type="button" onClick={duplicateDraft} className="flex h-11 items-center justify-center rounded-2xl border border-[#efc6d8] bg-white text-[#be185d]" aria-label="Duplicar calculo">
+                <button type="button" onClick={duplicateDraft} title="Duplicar calculo" className="flex h-12 items-center justify-center rounded-2xl border border-[#efc6d8] bg-white text-[#be185d] transition hover:-translate-y-0.5 hover:border-[#be185d]/45 hover:shadow-[0_10px_22px_rgba(63,33,40,0.10)]" aria-label="Duplicar calculo">
                   <Copy className="h-4 w-4" />
                 </button>
-                <button type="button" onClick={saveCurrentDraft} className="flex h-11 items-center justify-center rounded-2xl bg-[#be185d] text-white shadow-[0_12px_26px_rgba(190,24,93,0.18)]" aria-label="Guardar calculo">
+                <button type="button" onClick={saveCurrentDraft} title="Guardar calculo" className="flex h-12 items-center justify-center rounded-2xl bg-[#be185d] text-white shadow-[0_14px_30px_rgba(190,24,93,0.22)] transition hover:-translate-y-0.5 hover:bg-[#a91550]" aria-label="Guardar calculo">
                   <Save className="h-4 w-4" />
                 </button>
-                <button type="button" onClick={deleteSavedDraft} disabled={!savedActive} className="flex h-11 items-center justify-center rounded-2xl border border-red-100 bg-white text-red-500 disabled:cursor-not-allowed disabled:opacity-35" aria-label="Borrar calculo">
+                <button type="button" onClick={deleteSavedDraft} title="Borrar calculo" disabled={!savedActive} className="flex h-12 items-center justify-center rounded-2xl border border-red-100 bg-white text-red-500 transition hover:-translate-y-0.5 hover:border-red-200 hover:shadow-[0_10px_22px_rgba(248,113,113,0.12)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:translate-y-0 disabled:hover:shadow-none" aria-label="Borrar calculo">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
@@ -310,14 +315,14 @@ export default function AdminCosts() {
         </div>
 
         <aside className="space-y-4 xl:sticky xl:top-5 xl:self-start">
-          <section className="overflow-hidden rounded-[2rem] border border-[#efc6d8] bg-white shadow-[0_22px_58px_rgba(63,33,40,0.12)]">
-            <div className="bg-[linear-gradient(135deg,#3f2128_0%,#6b2b3a_55%,#be185d_100%)] p-5 text-white">
+          <section className="overflow-hidden rounded-[2rem] border border-[#efc6d8] bg-white shadow-[0_24px_64px_rgba(63,33,40,0.13)]">
+            <div className="bg-[linear-gradient(135deg,#3f2128_0%,#5b2b35_58%,#9d174d_100%)] p-5 text-white">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/58">Resultado</p>
               <h3 className="mt-2 font-serif text-3xl font-bold">{formatCLP(totals.suggestedPrice)}</h3>
               <p className="mt-1 text-sm font-semibold text-white/72">Precio sugerido para {getCostDraftLabel(draft)}</p>
             </div>
-            <div className="grid gap-3 p-5">
-              <div className={`rounded-2xl border px-4 py-3 ${statusClass}`}>
+            <div className="grid grid-cols-2 gap-3 p-5">
+              <div className={`col-span-2 rounded-2xl border px-4 py-3 ${statusClass}`}>
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] opacity-70">Lectura</p>
                 <p className="mt-1 text-sm font-bold">{totals.status.label}</p>
                 <p className="mt-1 text-xs font-semibold opacity-75">{totals.status.detail}</p>
@@ -354,17 +359,23 @@ export default function AdminCosts() {
             </div>
           </section>
 
-          <section className="rounded-[2rem] border border-[#efc6d8] bg-white p-5 shadow-[0_16px_38px_rgba(63,33,40,0.08)]">
-            <div className="flex items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#be185d]/10">
-                <PackageCheck className="h-5 w-5 text-[#be185d]" />
-              </span>
-              <div>
-                <h3 className="font-serif text-2xl font-bold text-[#3f2128]">Simple por ahora</h3>
+          <section className="rounded-[2rem] border border-[#efc6d8] bg-[linear-gradient(135deg,#fff_0%,#fff7fb_100%)] p-5 shadow-[0_16px_38px_rgba(63,33,40,0.08)]">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#be185d]/58">Siguiente modulo</p>
+                <h3 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Stock con semaforo</h3>
                 <p className="mt-2 text-sm font-semibold leading-6 text-[#3f2128]/58">
-                  Costos usa ingredientes, empaque y decoracion. Supabase para recetas reales queda para una fase posterior.
+                  Insumo, unidad, cantidad actual y alertas por color. El descuento automatico queda para recetas reales.
                 </p>
               </div>
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#3f2128] text-white shadow-[0_12px_28px_rgba(63,33,40,0.18)]">
+                <PackageCheck className="h-5 w-5" />
+              </span>
+            </div>
+            <div className="mt-4 grid gap-2 text-xs font-black sm:grid-cols-3">
+              <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-2 text-center text-emerald-700">Verde</span>
+              <span className="rounded-full border border-amber-100 bg-amber-50 px-3 py-2 text-center text-amber-700">Amarillo</span>
+              <span className="rounded-full border border-red-100 bg-red-50 px-3 py-2 text-center text-red-600">Rojo</span>
             </div>
           </section>
         </aside>

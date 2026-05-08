@@ -26,6 +26,8 @@ export const ORDER_FILTERS = [
 
 export const COST_DRAFT_KEY = 'dulcemae_cost_calculator_v1';
 export const COST_SAVED_KEY = 'dulcemae_saved_cost_calculations_v1';
+export const STOCK_ITEMS_KEY = 'dulcemae_stock_items_v1';
+export const STOCK_RECIPES_KEY = 'dulcemae_stock_recipes_v1';
 
 export const COST_PRESETS = [
   {
@@ -311,6 +313,183 @@ export function readStoredCostDrafts() {
 
 export function getCostDraftLabel(draft) {
   return draft?.productName?.trim() || 'Producto sin nombre';
+}
+
+export const STOCK_ITEM_TEMPLATES = [
+  { name: 'Manjar', unit: 'kg', quantity: 5, yellowAt: 3, redAt: 1, category: 'Rellenos', note: 'Base para tortas, alfajores y kuchen.' },
+  { name: 'Harina', unit: 'kg', quantity: 10, yellowAt: 4, redAt: 2, category: 'Masas', note: 'Pan amasado, masas dulces y bases.' },
+  { name: 'Crema', unit: 'L', quantity: 4, yellowAt: 2, redAt: 1, category: 'Lacteos', note: 'Rellenos, decoracion y postres.' },
+  { name: 'Queso crema', unit: 'kg', quantity: 3, yellowAt: 1.5, redAt: 0.5, category: 'Lacteos', note: 'Cheesecake y cremas firmes.' },
+  { name: 'Cajas y bases', unit: 'un', quantity: 20, yellowAt: 8, redAt: 3, category: 'Empaque', note: 'Presentacion final y traslados.' },
+  { name: 'Frutos rojos', unit: 'kg', quantity: 2, yellowAt: 1, redAt: 0.3, category: 'Fruta', note: 'Cheesecake, rellenos y decoracion.' },
+];
+
+export const STOCK_RECIPE_TEMPLATES = [
+  {
+    productName: 'Pan amasado familiar',
+    portions: 12,
+    lines: [
+      { stockName: 'Harina', amount: 1, unit: 'kg' },
+      { stockName: 'Cajas y bases', amount: 1, unit: 'un' },
+    ],
+  },
+  {
+    productName: 'Torta personalizada',
+    portions: 15,
+    lines: [
+      { stockName: 'Harina', amount: 0.7, unit: 'kg' },
+      { stockName: 'Manjar', amount: 0.8, unit: 'kg' },
+      { stockName: 'Crema', amount: 1, unit: 'L' },
+      { stockName: 'Cajas y bases', amount: 1, unit: 'un' },
+    ],
+  },
+  {
+    productName: 'Cheesecake',
+    portions: 10,
+    lines: [
+      { stockName: 'Queso crema', amount: 1, unit: 'kg' },
+      { stockName: 'Frutos rojos', amount: 0.5, unit: 'kg' },
+      { stockName: 'Cajas y bases', amount: 1, unit: 'un' },
+    ],
+  },
+];
+
+export function createStockId(prefix = 'stock') {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+export function createStockItem(overrides = {}) {
+  return {
+    id: overrides.id ?? createStockId('stock'),
+    name: overrides.name ?? 'Nuevo insumo',
+    unit: overrides.unit ?? 'un',
+    quantity: toPositiveNumber(overrides.quantity),
+    yellowAt: toPositiveNumber(overrides.yellowAt ?? 3),
+    redAt: toPositiveNumber(overrides.redAt ?? 1),
+    category: overrides.category ?? 'General',
+    note: overrides.note ?? '',
+    updatedAt: overrides.updatedAt ?? new Date().toISOString(),
+  };
+}
+
+export function createStockRecipeLine(overrides = {}) {
+  return {
+    id: overrides.id ?? createStockId('line'),
+    stockName: overrides.stockName ?? 'Insumo',
+    amount: toPositiveNumber(overrides.amount),
+    unit: overrides.unit ?? 'un',
+  };
+}
+
+export function createStockRecipe(overrides = {}) {
+  const fallback = STOCK_RECIPE_TEMPLATES[0];
+  return {
+    id: overrides.id ?? createStockId('recipe'),
+    productName: overrides.productName ?? fallback.productName,
+    portions: toPositiveNumber(overrides.portions ?? fallback.portions) || 1,
+    lines: Array.isArray(overrides.lines) && overrides.lines.length
+      ? overrides.lines.map(line => createStockRecipeLine(line))
+      : fallback.lines.map(line => createStockRecipeLine(line)),
+    updatedAt: overrides.updatedAt ?? new Date().toISOString(),
+  };
+}
+
+export function getStockLevel(item) {
+  const quantity = toPositiveNumber(item?.quantity);
+  const redAt = toPositiveNumber(item?.redAt);
+  const yellowAt = Math.max(redAt, toPositiveNumber(item?.yellowAt));
+
+  if (quantity <= redAt) {
+    return {
+      key: 'red',
+      label: 'Comprar ahora',
+      detail: 'Esta en nivel critico.',
+      badge: 'border-red-100 bg-red-50 text-red-600',
+      bar: 'bg-red-400',
+    };
+  }
+
+  if (quantity <= yellowAt) {
+    return {
+      key: 'yellow',
+      label: 'Revisar pronto',
+      detail: 'Conviene reponer antes de producir.',
+      badge: 'border-amber-100 bg-amber-50 text-amber-700',
+      bar: 'bg-amber-400',
+    };
+  }
+
+  return {
+    key: 'green',
+    label: 'Bien',
+    detail: 'Hay stock suficiente.',
+    badge: 'border-emerald-100 bg-emerald-50 text-emerald-700',
+    bar: 'bg-emerald-400',
+  };
+}
+
+export function sanitizeStockItems(value) {
+  if (!Array.isArray(value) || !value.length) {
+    return STOCK_ITEM_TEMPLATES.map(item => createStockItem(item));
+  }
+  return value.map(item => createStockItem(item));
+}
+
+export function sanitizeStockRecipes(value) {
+  if (!Array.isArray(value) || !value.length) {
+    return STOCK_RECIPE_TEMPLATES.map(recipe => createStockRecipe(recipe));
+  }
+  return value.map(recipe => createStockRecipe(recipe));
+}
+
+export function readStoredStockItems() {
+  if (typeof localStorage === 'undefined') return sanitizeStockItems();
+  try {
+    const raw = localStorage.getItem(STOCK_ITEMS_KEY);
+    return raw ? sanitizeStockItems(JSON.parse(raw)) : sanitizeStockItems();
+  } catch {
+    return sanitizeStockItems();
+  }
+}
+
+export function readStoredStockRecipes() {
+  if (typeof localStorage === 'undefined') return sanitizeStockRecipes();
+  try {
+    const raw = localStorage.getItem(STOCK_RECIPES_KEY);
+    return raw ? sanitizeStockRecipes(JSON.parse(raw)) : sanitizeStockRecipes();
+  } catch {
+    return sanitizeStockRecipes();
+  }
+}
+
+export function saveStockItemsToStorage(items) {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(STOCK_ITEMS_KEY, JSON.stringify(items));
+  } catch {
+    // El panel sigue funcionando aunque el navegador bloquee almacenamiento.
+  }
+}
+
+export function saveStockRecipesToStorage(recipes) {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(STOCK_RECIPES_KEY, JSON.stringify(recipes));
+  } catch {
+    // El panel sigue funcionando aunque el navegador bloquee almacenamiento.
+  }
+}
+
+export function calculateStockSummary(items) {
+  const counts = { green: 0, yellow: 0, red: 0 };
+  for (const item of items) counts[getStockLevel(item).key] += 1;
+  return {
+    total: items.length,
+    good: counts.green,
+    warning: counts.yellow,
+    urgent: counts.red,
+    needsAttention: counts.yellow + counts.red,
+  };
 }
 
 export function toOrderDate(value) {
