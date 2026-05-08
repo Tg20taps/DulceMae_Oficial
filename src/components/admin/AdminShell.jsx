@@ -867,17 +867,24 @@ function VerticalBarChart({ title, detail, data, valueKey = 'orders', formatValu
         </div>
         <TrendingUp className="h-5 w-5 shrink-0 text-[#be185d]" />
       </div>
-      <div className="flex h-44 items-end gap-2 overflow-x-auto rounded-3xl bg-[#fff7fb] px-3 pb-3 pt-5">
+      <div className="flex h-52 items-end gap-2 overflow-x-auto rounded-3xl bg-[#fff7fb] px-3 pb-3 pt-5">
         {data.map(item => {
           const value = Number(item[valueKey]) || 0;
+          const barHeight = value ? Math.max(10, (value / max) * 100) : 0;
           return (
-            <div key={item.label} className="flex min-w-[2.4rem] flex-1 flex-col items-center justify-end gap-2">
-              <span className="text-[10px] font-bold text-[#3f2128]/58">{formatValue(value)}</span>
-              <span className="flex h-28 w-full items-end rounded-full bg-[#f7dce8]">
-                <span
-                  className="block w-full rounded-full bg-gradient-to-t from-[#be185d] to-[#f472b6]"
-                  style={{ height: value ? `${Math.max(8, (value / max) * 100)}%` : '0%' }}
-                />
+            <div key={item.label} className="flex min-w-[2.65rem] flex-1 flex-col items-center justify-end gap-2">
+              <span className={`text-[10px] font-bold ${value ? 'text-[#3f2128]' : 'text-[#3f2128]/40'}`}>
+                {formatValue(value)}
+              </span>
+              <span className="flex h-32 w-full items-end justify-center rounded-2xl border border-[#f1d3df] bg-white/74 px-1.5 pb-1.5">
+                {value ? (
+                  <span
+                    className="block w-full rounded-2xl bg-gradient-to-t from-[#be185d] to-[#f472b6] shadow-[0_10px_20px_rgba(190,24,93,0.20)]"
+                    style={{ height: `${barHeight}%` }}
+                  />
+                ) : (
+                  <span className="mb-0.5 block h-1.5 w-7 rounded-full bg-[#efd0dc]" />
+                )}
               </span>
               <span className="max-w-[3rem] truncate text-[10px] font-bold text-[#3f2128]/62">{item.label}</span>
             </div>
