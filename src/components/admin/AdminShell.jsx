@@ -80,13 +80,8 @@ const COST_PRESETS = [
     servings: 12,
     salePrice: 6000,
     targetMargin: 45,
-    laborHours: 1.5,
-    laborRate: 3500,
     packagingCost: 500,
     decorationCost: 0,
-    overheadCost: 800,
-    deliveryCost: 0,
-    extraCost: 300,
     ingredients: [
       { id: 'pan_1', name: 'Harina', quantity: '1 kg', cost: 1200 },
       { id: 'pan_2', name: 'Manteca / aceite', quantity: 'por tanda', cost: 700 },
@@ -100,13 +95,8 @@ const COST_PRESETS = [
     servings: 10,
     salePrice: 15000,
     targetMargin: 48,
-    laborHours: 2.4,
-    laborRate: 3500,
     packagingCost: 1400,
     decorationCost: 500,
-    overheadCost: 1000,
-    deliveryCost: 0,
-    extraCost: 600,
     ingredients: [
       { id: 'kuchen_1', name: 'Masa base', quantity: '1 molde', cost: 2600 },
       { id: 'kuchen_2', name: 'Relleno fruta / nuez', quantity: '1 relleno', cost: 4200 },
@@ -120,13 +110,8 @@ const COST_PRESETS = [
     servings: 15,
     salePrice: 26000,
     targetMargin: 45,
-    laborHours: 3.5,
-    laborRate: 3500,
     packagingCost: 1800,
     decorationCost: 2500,
-    overheadCost: 1800,
-    deliveryCost: 0,
-    extraCost: 1000,
     ingredients: [
       { id: 'cake_15_1', name: 'Bizcocho e insumos base', quantity: '1 torta', cost: 5200 },
       { id: 'cake_15_2', name: 'Relleno', quantity: '2 capas', cost: 4200 },
@@ -140,13 +125,8 @@ const COST_PRESETS = [
     servings: 25,
     salePrice: 38000,
     targetMargin: 48,
-    laborHours: 4.5,
-    laborRate: 3500,
     packagingCost: 2400,
     decorationCost: 3800,
-    overheadCost: 2400,
-    deliveryCost: 0,
-    extraCost: 1200,
     ingredients: [
       { id: 'cake_25_1', name: 'Bizcocho e insumos base', quantity: '1 torta', cost: 7600 },
       { id: 'cake_25_2', name: 'Relleno', quantity: '2 a 3 capas', cost: 6200 },
@@ -160,13 +140,8 @@ const COST_PRESETS = [
     servings: 35,
     salePrice: 52000,
     targetMargin: 50,
-    laborHours: 5.5,
-    laborRate: 3500,
     packagingCost: 3200,
     decorationCost: 5200,
-    overheadCost: 3200,
-    deliveryCost: 0,
-    extraCost: 1500,
     ingredients: [
       { id: 'cake_35_1', name: 'Bizcocho e insumos base', quantity: '1 torta grande', cost: 10800 },
       { id: 'cake_35_2', name: 'Relleno', quantity: '3 capas', cost: 8200 },
@@ -180,13 +155,8 @@ const COST_PRESETS = [
     servings: 6,
     salePrice: 12000,
     targetMargin: 52,
-    laborHours: 1.4,
-    laborRate: 3500,
     packagingCost: 1200,
     decorationCost: 500,
-    overheadCost: 600,
-    deliveryCost: 0,
-    extraCost: 300,
     ingredients: [
       { id: 'alf_1', name: 'Masa e insumos', quantity: '6 unidades', cost: 2100 },
       { id: 'alf_2', name: 'Manjar / relleno', quantity: '6 unidades', cost: 1200 },
@@ -200,13 +170,8 @@ const COST_PRESETS = [
     servings: 10,
     salePrice: 22000,
     targetMargin: 47,
-    laborHours: 2.8,
-    laborRate: 3500,
     packagingCost: 1600,
     decorationCost: 1800,
-    overheadCost: 1200,
-    deliveryCost: 0,
-    extraCost: 700,
     ingredients: [
       { id: 'cheese_1', name: 'Base de galleta', quantity: '1 molde', cost: 1800 },
       { id: 'cheese_2', name: 'Queso crema y lácteos', quantity: '1 mezcla', cost: 6200 },
@@ -327,13 +292,8 @@ function buildCostDraft(preset = COST_PRESETS[0]) {
     servings: preset.servings,
     salePrice: preset.salePrice,
     targetMargin: preset.targetMargin,
-    laborHours: preset.laborHours,
-    laborRate: preset.laborRate,
     packagingCost: preset.packagingCost,
     decorationCost: preset.decorationCost,
-    overheadCost: preset.overheadCost,
-    deliveryCost: preset.deliveryCost,
-    extraCost: preset.extraCost,
     ingredients: preset.ingredients.map(item => createCostItem(item)),
   };
 }
@@ -346,13 +306,8 @@ function buildBlankCostDraft() {
     servings: 1,
     salePrice: 0,
     targetMargin: 45,
-    laborHours: 1,
-    laborRate: 3500,
     packagingCost: 0,
     decorationCost: 0,
-    overheadCost: 0,
-    deliveryCost: 0,
-    extraCost: 0,
     ingredients: [
       createCostItem({ name: 'Insumo principal', quantity: 'cantidad usada', cost: 0 }),
     ],
@@ -372,13 +327,8 @@ function sanitizeCostDraft(value) {
     servings: toPositiveNumber(value.servings) || fallback.servings,
     salePrice: toPositiveNumber(value.salePrice),
     targetMargin: Math.min(85, Math.max(5, Number(value.targetMargin) || fallback.targetMargin)),
-    laborHours: toPositiveNumber(value.laborHours),
-    laborRate: toPositiveNumber(value.laborRate),
     packagingCost: toPositiveNumber(value.packagingCost),
     decorationCost: toPositiveNumber(value.decorationCost),
-    overheadCost: toPositiveNumber(value.overheadCost),
-    deliveryCost: toPositiveNumber(value.deliveryCost),
-    extraCost: toPositiveNumber(value.extraCost),
     ingredients: Array.isArray(value.ingredients) && value.ingredients.length
       ? value.ingredients.map(item => createCostItem(item))
       : fallback.ingredients,
@@ -1369,15 +1319,9 @@ function CostsPlanningPanel() {
 
   const totals = useMemo(() => {
     const ingredientTotal = draft.ingredients.reduce((sum, item) => sum + toPositiveNumber(item.cost), 0);
-    const laborCost = toPositiveNumber(draft.laborHours) * toPositiveNumber(draft.laborRate);
-    const fixedCosts = (
-      toPositiveNumber(draft.packagingCost) +
-      toPositiveNumber(draft.decorationCost) +
-      toPositiveNumber(draft.overheadCost) +
-      toPositiveNumber(draft.deliveryCost) +
-      toPositiveNumber(draft.extraCost)
-    );
-    const totalCost = ingredientTotal + laborCost + fixedCosts;
+    const packagingCost = toPositiveNumber(draft.packagingCost);
+    const decorationCost = toPositiveNumber(draft.decorationCost);
+    const totalCost = ingredientTotal + packagingCost + decorationCost;
     const salePrice = toPositiveNumber(draft.salePrice);
     const targetMargin = Math.min(85, Math.max(5, Number(draft.targetMargin) || 45));
     const suggestedPrice = roundToNearest(totalCost / (1 - targetMargin / 100));
@@ -1404,8 +1348,8 @@ function CostsPlanningPanel() {
       status,
       breakdown: [
         { label: 'Ingredientes', value: ingredientTotal, color: 'bg-[#be185d]' },
-        { label: 'Mano de obra', value: laborCost, color: 'bg-[#3f2128]' },
-        { label: 'Empaque y extras', value: fixedCosts, color: 'bg-[#f472b6]' },
+        { label: 'Empaque', value: packagingCost, color: 'bg-[#3f2128]' },
+        { label: 'Decoración', value: decorationCost, color: 'bg-[#f472b6]' },
       ],
     };
   }, [draft]);
@@ -1508,7 +1452,7 @@ function CostsPlanningPanel() {
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#be185d]/62">Costos internos</p>
             <h2 className="mt-2 font-serif text-3xl font-bold leading-tight text-[#3f2128]">Calculadora de precios</h2>
             <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#3f2128]/58">
-              Estima ingredientes, mano de obra, empaque, extras, margen y precio sugerido antes de vender.
+              Estima ingredientes, empaque, decoración, margen y precio sugerido antes de vender.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -1533,7 +1477,7 @@ function CostsPlanningPanel() {
       <section className="mb-4 grid gap-3 lg:grid-cols-3">
         {[
           ['1', 'Elige o crea', 'Usa una plantilla, abre un cálculo guardado o empieza uno nuevo.'],
-          ['2', 'Completa costos', 'Anota insumos, horas de trabajo, empaque, merma y extras.'],
+          ['2', 'Completa costos', 'Anota insumos, empaque y decoración sin llenar datos innecesarios.'],
           ['3', 'Revisa el precio', 'Mira el margen y guarda el cálculo para consultarlo después.'],
         ].map(([number, title, detail]) => (
           <div key={number} className="rounded-3xl border border-[#efc6d8] bg-white p-4 shadow-[0_12px_30px_rgba(63,33,40,0.07)]">
@@ -1679,14 +1623,13 @@ function CostsPlanningPanel() {
                 ['servings', 'Porciones', 'number'],
                 ['salePrice', 'Precio actual', 'number'],
                 ['targetMargin', 'Margen objetivo %', 'number'],
-                ['laborHours', 'Horas de trabajo', 'number'],
               ].map(([field, label, type]) => (
                 <label key={field}>
                   <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#3f2128]/54">{label}</span>
                   <input
                     type={type}
                     min="0"
-                    step={field === 'laborHours' ? '0.5' : '1'}
+                    step="1"
                     value={draft[field]}
                     onChange={(event) => updateDraftField(field, event.target.value)}
                     className="min-h-[48px] w-full rounded-2xl border border-[#efc6d8] bg-[#fff7fb] px-4 py-3 text-sm font-bold text-[#3f2128] outline-none transition focus:border-[#be185d]/45"
@@ -1759,19 +1702,15 @@ function CostsPlanningPanel() {
           <section className="rounded-[2rem] border border-[#efc6d8] bg-white p-5 shadow-[0_16px_38px_rgba(63,33,40,0.08)]">
             <div className="mb-4">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#be185d]/58">Gastos</p>
-              <h3 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Trabajo y extras</h3>
+              <h3 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Empaque y decoración</h3>
               <p className="mt-1 text-xs font-semibold leading-5 text-[#3f2128]/52">
-                Aquí entra el tiempo de preparación, empaque, merma, gas, luz y cualquier gasto pequeño que suele olvidarse.
+                Por ahora dejamos solo estos dos gastos para que el cálculo sea simple y fácil de usar.
               </p>
             </div>
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2">
               {[
-                ['laborRate', 'Valor hora'],
                 ['packagingCost', 'Empaque'],
                 ['decorationCost', 'Decoración'],
-                ['overheadCost', 'Luz, gas y merma'],
-                ['deliveryCost', 'Delivery interno'],
-                ['extraCost', 'Imprevistos'],
               ].map(([field, label]) => (
                 <label key={field}>
                   <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#3f2128]/54">{label}</span>
