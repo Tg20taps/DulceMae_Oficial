@@ -70,8 +70,49 @@ const ADMIN_TABS = [
 ];
 
 const COST_DRAFT_KEY = 'dulcemae_cost_calculator_v1';
+const COST_SAVED_KEY = 'dulcemae_saved_cost_calculations_v1';
 
 const COST_PRESETS = [
+  {
+    key: 'pan_amasado',
+    label: 'Pan amasado',
+    productName: 'Pan amasado familiar',
+    servings: 12,
+    salePrice: 6000,
+    targetMargin: 45,
+    laborHours: 1.5,
+    laborRate: 3500,
+    packagingCost: 500,
+    decorationCost: 0,
+    overheadCost: 800,
+    deliveryCost: 0,
+    extraCost: 300,
+    ingredients: [
+      { id: 'pan_1', name: 'Harina', quantity: '1 kg', cost: 1200 },
+      { id: 'pan_2', name: 'Manteca / aceite', quantity: 'por tanda', cost: 700 },
+      { id: 'pan_3', name: 'Levadura, sal y azúcar', quantity: 'por tanda', cost: 450 },
+    ],
+  },
+  {
+    key: 'kuchen',
+    label: 'Kuchen',
+    productName: 'Kuchen casero',
+    servings: 10,
+    salePrice: 15000,
+    targetMargin: 48,
+    laborHours: 2.4,
+    laborRate: 3500,
+    packagingCost: 1400,
+    decorationCost: 500,
+    overheadCost: 1000,
+    deliveryCost: 0,
+    extraCost: 600,
+    ingredients: [
+      { id: 'kuchen_1', name: 'Masa base', quantity: '1 molde', cost: 2600 },
+      { id: 'kuchen_2', name: 'Relleno fruta / nuez', quantity: '1 relleno', cost: 4200 },
+      { id: 'kuchen_3', name: 'Crema o cobertura', quantity: 'terminación', cost: 1800 },
+    ],
+  },
   {
     key: 'cake_15',
     label: 'Torta 15 personas',
@@ -265,6 +306,10 @@ function roundToNearest(value, step = 500) {
   return Math.ceil(value / step) * step;
 }
 
+function createCostDraftId() {
+  return `calc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
 function createCostItem(overrides = {}) {
   return {
     id: overrides.id ?? `cost_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -276,6 +321,8 @@ function createCostItem(overrides = {}) {
 
 function buildCostDraft(preset = COST_PRESETS[0]) {
   return {
+    id: createCostDraftId(),
+    updatedAt: new Date().toISOString(),
     productName: preset.productName,
     servings: preset.servings,
     salePrice: preset.salePrice,
@@ -291,6 +338,27 @@ function buildCostDraft(preset = COST_PRESETS[0]) {
   };
 }
 
+function buildBlankCostDraft() {
+  return {
+    id: createCostDraftId(),
+    updatedAt: new Date().toISOString(),
+    productName: 'Nuevo producto',
+    servings: 1,
+    salePrice: 0,
+    targetMargin: 45,
+    laborHours: 1,
+    laborRate: 3500,
+    packagingCost: 0,
+    decorationCost: 0,
+    overheadCost: 0,
+    deliveryCost: 0,
+    extraCost: 0,
+    ingredients: [
+      createCostItem({ name: 'Insumo principal', quantity: 'cantidad usada', cost: 0 }),
+    ],
+  };
+}
+
 function sanitizeCostDraft(value) {
   const fallback = buildCostDraft();
   if (!value || typeof value !== 'object') return fallback;
@@ -298,6 +366,9 @@ function sanitizeCostDraft(value) {
   return {
     ...fallback,
     ...value,
+    id: value.id || createCostDraftId(),
+    updatedAt: value.updatedAt || new Date().toISOString(),
+    productName: value.productName || fallback.productName,
     servings: toPositiveNumber(value.servings) || fallback.servings,
     salePrice: toPositiveNumber(value.salePrice),
     targetMargin: Math.min(85, Math.max(5, Number(value.targetMargin) || fallback.targetMargin)),
@@ -323,6 +394,26 @@ function readStoredCostDraft() {
   } catch {
     return buildCostDraft();
   }
+}
+
+function readStoredCostDrafts() {
+  if (typeof localStorage === 'undefined') return [buildCostDraft()];
+
+  try {
+    const raw = localStorage.getItem(COST_SAVED_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(parsed) && parsed.length) {
+      return parsed.map(item => sanitizeCostDraft(item));
+    }
+  } catch {
+    // Fall back to legacy draft below.
+  }
+
+  return [sanitizeCostDraft(readStoredCostDraft())];
+}
+
+function getCostDraftLabel(draft) {
+  return draft?.productName?.trim() || 'Producto sin nombre';
 }
 
 function toOrderDate(value) {
@@ -1258,11 +1349,23 @@ function AdminTabs({ activeTab, onChange }) {
 }
 
 function CostsPlanningPanel() {
-  const [draft, setDraft] = useState(readStoredCostDraft);
+  const [savedDrafts, setSavedDrafts] = useState(readStoredCostDrafts);
+  const [draft, setDraft] = useState(() => savedDrafts[0] ?? readStoredCostDraft());
+  const [costNotice, setCostNotice] = useState('');
 
   useEffect(() => {
     localStorage.setItem(COST_DRAFT_KEY, JSON.stringify(draft));
   }, [draft]);
+
+  useEffect(() => {
+    localStorage.setItem(COST_SAVED_KEY, JSON.stringify(savedDrafts));
+  }, [savedDrafts]);
+
+  useEffect(() => {
+    if (!costNotice) return undefined;
+    const timeoutId = window.setTimeout(() => setCostNotice(''), 2600);
+    return () => window.clearTimeout(timeoutId);
+  }, [costNotice]);
 
   const totals = useMemo(() => {
     const ingredientTotal = draft.ingredients.reduce((sum, item) => sum + toPositiveNumber(item.cost), 0);
@@ -1342,6 +1445,53 @@ function CostsPlanningPanel() {
 
   function applyPreset(preset) {
     setDraft(buildCostDraft(preset));
+    setCostNotice(`Plantilla "${preset.label}" cargada. Ajusta los datos y guarda el cálculo.`);
+  }
+
+  function saveCurrentDraft() {
+    const cleanDraft = sanitizeCostDraft({
+      ...draft,
+      productName: getCostDraftLabel(draft),
+      updatedAt: new Date().toISOString(),
+    });
+
+    setDraft(cleanDraft);
+    setSavedDrafts(prev => {
+      const exists = prev.some(item => item.id === cleanDraft.id);
+      const next = exists
+        ? prev.map(item => item.id === cleanDraft.id ? cleanDraft : item)
+        : [cleanDraft, ...prev];
+      return next.slice(0, 40);
+    });
+    setCostNotice(`Guardado como "${getCostDraftLabel(cleanDraft)}".`);
+  }
+
+  function startNewDraft() {
+    setDraft(buildBlankCostDraft());
+    setCostNotice('Nuevo cálculo listo para completar.');
+  }
+
+  function loadSavedDraft(savedDraft) {
+    setDraft(sanitizeCostDraft(savedDraft));
+    setCostNotice(`Cargado: "${getCostDraftLabel(savedDraft)}".`);
+  }
+
+  function duplicateDraft() {
+    const copy = sanitizeCostDraft({
+      ...draft,
+      id: createCostDraftId(),
+      productName: `Copia de ${getCostDraftLabel(draft)}`,
+      updatedAt: new Date().toISOString(),
+    });
+    setDraft(copy);
+    setCostNotice('Copia creada. Ajusta el nombre y guarda.');
+  }
+
+  function deleteSavedDraft(id) {
+    const next = savedDrafts.filter(item => item.id !== id);
+    setSavedDrafts(next);
+    if (draft.id === id) setDraft(next[0] ? sanitizeCostDraft(next[0]) : buildBlankCostDraft());
+    setCostNotice('Cálculo eliminado de guardados.');
   }
 
   const statusClass = {
@@ -1374,8 +1524,120 @@ function CostsPlanningPanel() {
         </div>
       </div>
 
-      <div className="mb-4 overflow-x-auto pb-1">
-        <div className="flex min-w-max gap-2">
+      {costNotice && (
+        <p className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+          {costNotice}
+        </p>
+      )}
+
+      <section className="mb-4 grid gap-3 lg:grid-cols-3">
+        {[
+          ['1', 'Elige o crea', 'Usa una plantilla, abre un cálculo guardado o empieza uno nuevo.'],
+          ['2', 'Completa costos', 'Anota insumos, horas de trabajo, empaque, merma y extras.'],
+          ['3', 'Revisa el precio', 'Mira el margen y guarda el cálculo para consultarlo después.'],
+        ].map(([number, title, detail]) => (
+          <div key={number} className="rounded-3xl border border-[#efc6d8] bg-white p-4 shadow-[0_12px_30px_rgba(63,33,40,0.07)]">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#be185d] text-sm font-bold text-white">
+                {number}
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-[#3f2128]">{title}</h3>
+                <p className="mt-1 text-xs font-semibold leading-5 text-[#3f2128]/56">{detail}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <section className="mb-4 rounded-[2rem] border border-[#efc6d8] bg-white p-4 shadow-[0_16px_38px_rgba(63,33,40,0.08)]">
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#be185d]/58">Guardados</p>
+            <h3 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Mis cálculos</h3>
+            <p className="mt-1 text-xs font-semibold text-[#3f2128]/52">Se guardan en este navegador por ahora.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:flex">
+            <button
+              type="button"
+              onClick={startNewDraft}
+              className="rounded-2xl border border-[#efc6d8] bg-white px-4 py-2 text-xs font-bold text-[#3f2128]"
+            >
+              Nuevo
+            </button>
+            <button
+              type="button"
+              onClick={duplicateDraft}
+              className="rounded-2xl border border-[#efc6d8] bg-[#fff7fb] px-4 py-2 text-xs font-bold text-[#be185d]"
+            >
+              Duplicar
+            </button>
+            <button
+              type="button"
+              onClick={saveCurrentDraft}
+              className="col-span-2 rounded-2xl bg-[#be185d] px-4 py-2 text-xs font-bold text-white shadow-[0_12px_26px_rgba(190,24,93,0.18)] sm:col-span-1"
+            >
+              Guardar cálculo
+            </button>
+          </div>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {savedDrafts.length ? savedDrafts.map(savedDraft => {
+            const active = draft.id === savedDraft.id;
+            return (
+              <div
+                key={savedDraft.id}
+                className={`rounded-3xl border p-3 transition ${
+                  active
+                    ? 'border-[#be185d]/45 bg-[#fff1f8] shadow-[0_12px_28px_rgba(190,24,93,0.10)]'
+                    : 'border-[#efc6d8] bg-white'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-[#3f2128]">{getCostDraftLabel(savedDraft)}</p>
+                    <p className="mt-1 text-xs font-semibold text-[#3f2128]/48">
+                      {formatCLP(savedDraft.salePrice)} · {savedDraft.servings} porciones
+                    </p>
+                  </div>
+                  {active && (
+                    <span className="rounded-full bg-[#be185d] px-2 py-1 text-[10px] font-bold text-white">Activo</span>
+                  )}
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => loadSavedDraft(savedDraft)}
+                    className="rounded-2xl border border-[#efc6d8] bg-white px-3 py-2 text-xs font-bold text-[#be185d]"
+                  >
+                    Abrir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteSavedDraft(savedDraft.id)}
+                    className="rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-bold text-red-500"
+                  >
+                    Borrar
+                  </button>
+                </div>
+              </div>
+            );
+          }) : (
+            <p className="rounded-3xl border border-dashed border-[#efc6d8] bg-[#fff7fb] px-4 py-5 text-sm font-semibold text-[#3f2128]/54 md:col-span-2 xl:col-span-3">
+              Todavía no hay cálculos guardados. Completa un producto y toca Guardar cálculo.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="mb-4 rounded-[2rem] border border-[#efc6d8] bg-white p-4 shadow-[0_16px_38px_rgba(63,33,40,0.08)]">
+        <div className="mb-3">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#be185d]/58">Plantillas rápidas</p>
+          <h3 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Partir desde un producto parecido</h3>
+          <p className="mt-1 text-xs font-semibold text-[#3f2128]/52">Cargar una plantilla no borra tus guardados; úsala como base y luego guarda.</p>
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1">
           {COST_PRESETS.map(preset => (
             <button
               key={preset.key}
@@ -1388,7 +1650,7 @@ function CostsPlanningPanel() {
             </button>
           ))}
         </div>
-      </div>
+      </section>
 
       <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
         <div className="space-y-4">
@@ -1397,6 +1659,9 @@ function CostsPlanningPanel() {
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#be185d]/58">Producto</p>
                 <h3 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Datos de venta</h3>
+                <p className="mt-1 text-xs font-semibold leading-5 text-[#3f2128]/52">
+                  Completa lo que se cobra al cliente y cuántas porciones o unidades salen.
+                </p>
               </div>
               <Calculator className="h-5 w-5 text-[#be185d]" />
             </div>
@@ -1436,6 +1701,9 @@ function CostsPlanningPanel() {
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#be185d]/58">Receta base</p>
                 <h3 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Insumos</h3>
+                <p className="mt-1 text-xs font-semibold leading-5 text-[#3f2128]/52">
+                  En costo escribe solo lo que se ocupa en este producto, no necesariamente el paquete completo.
+                </p>
               </div>
               <button
                 type="button"
@@ -1492,6 +1760,9 @@ function CostsPlanningPanel() {
             <div className="mb-4">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#be185d]/58">Gastos</p>
               <h3 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Trabajo y extras</h3>
+              <p className="mt-1 text-xs font-semibold leading-5 text-[#3f2128]/52">
+                Aquí entra el tiempo de preparación, empaque, merma, gas, luz y cualquier gasto pequeño que suele olvidarse.
+              </p>
             </div>
             <div className="grid gap-3 md:grid-cols-3">
               {[
