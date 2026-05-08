@@ -23,7 +23,7 @@ Fecha de trabajo: 2026-05-07.
 
 Prioridad inmediata:
 
-- Resolver guardado de pedidos en Supabase.
+- Guardado de pedidos en Supabase resuelto.
 - El problema detectado no es que `/admin` sea otro link: es RLS/politicas de `orders`.
 - La tabla `public.orders` existe, pero despues de pruebas seguia en `0` pedidos.
 - El fix correcto debe resetear todas las policies antiguas de `public.orders` y recrear:
@@ -33,6 +33,7 @@ Prioridad inmediata:
 - Archivo principal para correr en Supabase SQL Editor: `supabase/fix_orders_access.sql`.
 - Al correrlo, usar Run sobre todo el script, no solo "Run selected" con las consultas de conteo.
 - Despues de correrlo, probar con un pedido nuevo. Los pedidos enviados antes del fix no apareceran porque Supabase los bloqueo.
+- Confirmado: el pedido nuevo ya aparece en el panel administrador.
 
 Estado de admin:
 
@@ -55,6 +56,7 @@ Estado de checkout:
 - Campo hora usa formato 24 h por compatibilidad nativa.
 - Se debe mostrar ayuda clara: `15:30 = 3:30 p.m.` y, cuando hay hora elegida, su equivalente a.m./p.m.
 - El mensaje de WhatsApp debe mantener tono cercano y llevar datos estructurados.
+- Version importante desplegada para guardado: commit `a92dd1c`.
 
 ## Fase 1 - Cerrar identidad visual y UX publica
 
@@ -365,6 +367,56 @@ Estas ideas quedan registradas para retomarlas por etapas sin sobrecargar el sis
   - Insumos o compras recurrentes, si mas adelante se registra inventario.
 - Permitir cantidades rapidas y variantes frecuentes para que tu mama no tenga que repetir datos manualmente.
 
+### Asesor de pedidos / chat bot
+
+Idea: agregar un asistente dentro de la pagina para responder dudas comunes y guiar al cliente antes de WhatsApp.
+
+Problemas reales que debe resolver:
+
+- Preguntas por porciones: torta para 15, 25, 35 personas.
+- Precios variables por tamano, relleno, decoracion, pisos y urgencia.
+- Dudas sobre anticipacion, horarios, retiro, delivery y pagos.
+- Recomendaciones segun ocasion: cumpleanos, aniversario, regalo, once familiar.
+- Alergias, dedicatorias, colores, referencias de diseno.
+- Preguntas repetidas que hoy terminan sobrecargando WhatsApp.
+
+Recomendacion por etapas:
+
+- Version 1: asistente guiado sin IA generativa.
+  - Boton flotante "Ayuda para elegir".
+  - Preguntas frecuentes con botones: porciones, precios, anticipacion, delivery, pagos.
+  - Respuestas controladas desde un archivo o tabla editable.
+  - CTA final: "Armar pedido" o "Consultar por WhatsApp".
+- Version 2: cotizador guiado.
+  - Cliente elige tipo: torta, kuchen, alfajores, regalo.
+  - Cliente elige porciones o tamano.
+  - Sistema muestra rango estimado: "desde $X, puede variar por decoracion".
+  - Nunca promete disponibilidad automaticamente.
+- Version 3: asistente con IA controlada.
+  - IA solo responde usando catalogo, reglas y FAQ guardadas.
+  - Si no sabe, deriva a WhatsApp.
+  - No inventa precios, disponibilidad ni ingredientes.
+  - Puede sugerir preguntas utiles: cantidad de personas, fecha, sabor, presupuesto.
+- Version 4: IA conectada al admin.
+  - Lee productos activos, precios, zonas, horarios y reglas desde Supabase.
+  - Ayuda a crear un borrador de pedido.
+  - Guarda datos para analisis de preguntas frecuentes y demanda no cubierta.
+
+Dificultad estimada:
+
+- Asistente guiado: baja/media. Muy recomendable como siguiente mejora publica.
+- Cotizador por reglas: media. Necesita tabla de tamanos, precios base y extras.
+- IA generativa segura: media/alta. Requiere backend o funcion segura, no exponer claves en frontend.
+- IA conectada al admin: alta. Conviene despues de catalogo editable y reglas de precios.
+
+Reglas de seguridad:
+
+- No poner claves privadas de IA en React/Vite.
+- No dejar que el bot invente precios.
+- Mostrar siempre "precio estimado" cuando dependa de decoracion o tamano.
+- Para pedidos especiales, cerrar con WhatsApp.
+- Guardar preguntas anonimas para saber que productos o tamanos agregar al catalogo.
+
 ### Una sola experiencia / un solo link
 
 - Mantener la web publica y el admin dentro del mismo dominio.
@@ -428,16 +480,57 @@ Por que mejora el negocio:
 
 ## Orden recomendado de implementacion
 
-1. Identidad visual final.
-2. Checkout WhatsApp con delivery y metodo de pago.
-3. Payload de pedido definitivo.
-4. Guardado en Google Sheets/webhook.
-5. Admin visual solo lectura de pedidos.
-6. Cambio de estados + mensajes listos para WhatsApp.
-7. Productos editables.
-8. Calculadora de costos.
-9. Dashboard.
-10. Automatizacion avanzada.
+1. Estabilizar pedidos guardados en Supabase y admin basico.
+2. Pulir checkout publico: hora, fecha, textos, mobile y mensajes WhatsApp.
+3. Admin de pedidos: detalle, filtros, cancelar con motivo, cambiar estado y mensajes rapidos.
+4. Catalogo editable desde admin: productos, fotos, precios, disponibilidad y categorias.
+5. Productos frecuentes, variantes y tamanos: porciones, rellenos, extras y rangos de precio.
+6. Asesor de pedidos guiado: FAQ, porciones, anticipacion, delivery, pagos y CTA a WhatsApp.
+7. Cotizador por reglas para tortas y pedidos especiales.
+8. Dashboard real: ventas, estados, cancelaciones, productos, zonas y horarios.
+9. Calculadora de costos e insumos.
+10. Login de clientes, puntos/cupones y experiencia unificada.
+11. IA generativa controlada o automatizacion avanzada de WhatsApp.
+
+## Prompt recomendado para una nueva pestana
+
+Usar este prompt para continuar desde cero sin perder contexto:
+
+```text
+Proyecto DulceMae en C:\Users\Tg20taps\Desktop\Proyecto mai.
+Es un sitio React/Vite/Tailwind desplegado en Vercel y conectado a Supabase.
+El checkout ya guarda pedidos en public.orders y el panel /admin ya muestra pedidos para claudiamancilla1978@gmail.com.
+Mantener la estetica premium y mobile-first.
+
+Lee primero:
+- docs/PLAN_ACCION_DULCEMAE.md
+- docs/SUPABASE_ADMIN_SETUP.md
+- src/components/CartModal.jsx
+- src/components/admin/AdminShell.jsx
+- src/lib/orders.js
+- supabase/orders.sql
+- supabase/fix_orders_access.sql
+
+Estado clave:
+- El guardado publico funciona porque src/lib/orders.js usa Prefer: return=minimal.
+- No cambiar a return=representation porque rompe RLS.
+- Supabase debe mantener insert publico y lectura/update/delete solo para admin autenticado.
+- El admin ya tiene cancelacion con motivo y no debe borrar pedidos automaticamente.
+
+Siguiente fase recomendada:
+Mejorar el admin de pedidos para mi mama. Quiero vista mobile-first, tarjetas claras, filtros por estado, detalle de pedido, cambiar estado, cancelar con motivo, y botones para copiar mensajes de WhatsApp. No hagas aun login de clientes ni IA generativa. Primero deja el flujo de pedidos profesional y simple.
+
+Tambien considera en el plan futuro:
+- Catalogo editable con fotos, precios y disponibilidad.
+- Variantes de tortas por porciones: 15, 25, 35 personas.
+- Rangos de precio por tamano, relleno, decoracion y urgencia.
+- Asesor de pedidos guiado tipo chatbot sin IA generativa al inicio.
+- Cotizador por reglas antes de una IA real.
+
+Antes de editar, revisa el estado del repo y el plan.
+Implementa por partes, compila con npm.cmd run build, corre lint si aplica, y resume cambios.
+No rompas checkout, WhatsApp ni Supabase.
+```
 
 ## Prompt corto para seguir trabajando por partes
 
