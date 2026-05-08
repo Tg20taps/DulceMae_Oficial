@@ -17,6 +17,62 @@ La base actual ya sirve como primer MVP visual y comercial:
 
 El punto importante: ya existe el flujo cliente -> carrito -> formulario -> WhatsApp. Antes de backend, conviene ordenar los datos y la experiencia.
 
+## Meta regalo Dia de la Madre
+
+Objetivo emocional y practico: entregar a la mama una pagina bonita, confiable y simple de usar para empezar a recibir y organizar pedidos reales, sin que necesite entender tecnologia.
+
+Version entregable minima:
+
+- Web publica funcionando en celular y computador.
+- Catalogo visible aunque luego se reemplace por fotos y productos reales.
+- Carrito fluido.
+- Checkout claro con nombre, telefono, fecha, hora, retiro/delivery, pago y comentarios.
+- WhatsApp con mensaje cercano, ordenado y util.
+- Pedido guardado en Supabase.
+- `/admin` privado con login.
+- Admin muestra pedidos nuevos.
+- Admin permite cambiar estado.
+- Admin permite cancelar con motivo sin borrar datos.
+- Ventas visibles no cuenta cancelados.
+- Flujo validado con pedidos de prueba en celular.
+
+Calidad esperada antes de entregarla:
+
+- Mobile-first: la mama debe poder usarlo desde el telefono.
+- Textos no tecnicos.
+- Acciones grandes y claras.
+- Sin pantallas en blanco.
+- Sin datos sensibles expuestos.
+- Si algo falla, el cliente igualmente puede enviar WhatsApp.
+- La experiencia debe sentirse pro, no como demo.
+
+Lo que puede quedar para despues de la entrega:
+
+- Chatbot/asesor.
+- Login de clientes.
+- Puntos y cupones.
+- Dashboard avanzado.
+- Calculadora completa de costos.
+- Catalogo totalmente editable.
+- IA generativa.
+
+Regla de trabajo:
+
+- Trabajar por fases cortas.
+- Evitar sobrecargar el chat.
+- Mantener calidad visual premium.
+- Compilar y probar antes de subir.
+- No romper checkout, WhatsApp, Supabase ni admin.
+- Documentar cada fase importante para poder continuar en una pestana nueva.
+
+Vision de datos:
+
+- Cada pedido debe alimentar datos utiles.
+- Las cancelaciones deben guardar motivo.
+- Los cambios de estado deben servir para medir operacion.
+- Los productos reales y variantes deben permitir analizar demanda.
+- Los graficos deben ayudar a responder: que se vende, cuando se vende, que se cancela, cuanto entra, cuanto cuesta y que conviene mejorar.
+
 ## Checkpoint para continuar en una pestaña nueva
 
 Fecha de trabajo: 2026-05-07.
@@ -518,7 +574,7 @@ Estado clave:
 - El admin ya tiene cancelacion con motivo y no debe borrar pedidos automaticamente.
 
 Siguiente fase recomendada:
-Mejorar el admin de pedidos para mi mama. Quiero vista mobile-first, tarjetas claras, filtros por estado, detalle de pedido, cambiar estado, cancelar con motivo, y botones para copiar mensajes de WhatsApp. No hagas aun login de clientes ni IA generativa. Primero deja el flujo de pedidos profesional y simple.
+Meta entrega Dia de la Madre: mejorar el admin de pedidos para mi mama hasta que sea usable en el dia a dia. Quiero vista mobile-first, tarjetas claras, filtros por estado, detalle de pedido, cambiar estado, cancelar con motivo, abrir WhatsApp del cliente y botones para copiar mensajes de WhatsApp. No hagas aun login de clientes ni IA generativa. Primero deja el flujo de pedidos profesional, simple y confiable para poder entregarle la pagina.
 
 Tambien considera en el plan futuro:
 - Catalogo editable con fotos, precios y disponibilidad.
