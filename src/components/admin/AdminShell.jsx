@@ -4,8 +4,10 @@ import {
   AlertCircle,
   BarChart3,
   Ban,
+  Calculator,
   CalendarDays,
   CheckCircle2,
+  ClipboardList,
   Clock3,
   Copy,
   CopyCheck,
@@ -23,6 +25,7 @@ import {
   Send,
   ShieldCheck,
   Sparkles,
+  TrendingUp,
   Truck,
   UserRound,
   X,
@@ -47,6 +50,7 @@ const STATUS_OPTIONS = Object.entries(STATUS_LABELS).map(([value, label]) => ({ 
 const ACTIVE_ORDER_STATUSES = ['pending', 'confirmed', 'preparing', 'ready'];
 const HISTORY_ORDER_STATUSES = ['delivered', 'cancelled'];
 const ORDER_FETCH_LIMIT = 200;
+const HISTORY_VISIBLE_DAYS = 30;
 
 const ORDER_FILTERS = [
   { value: 'active', label: 'Activos', statuses: ACTIVE_ORDER_STATUSES },
@@ -54,9 +58,15 @@ const ORDER_FILTERS = [
   { value: 'confirmed', label: 'Confirmado', statuses: ['confirmed'] },
   { value: 'preparing', label: 'En preparación', statuses: ['preparing'] },
   { value: 'ready', label: 'Listo', statuses: ['ready'] },
-  { value: 'history', label: 'Historial', statuses: HISTORY_ORDER_STATUSES },
   { value: 'delivered', label: 'Entregado', statuses: ['delivered'] },
   { value: 'cancelled', label: 'Cancelado', statuses: ['cancelled'] },
+  { value: 'history', label: 'Historial', statuses: HISTORY_ORDER_STATUSES },
+];
+
+const ADMIN_TABS = [
+  { value: 'orders', label: 'Pedidos', detail: 'Atender y responder', Icon: ClipboardList },
+  { value: 'insights', label: 'Análisis', detail: 'Día, semana y mes', Icon: BarChart3 },
+  { value: 'costs', label: 'Costos', detail: 'Próxima fase', Icon: Calculator },
 ];
 
 const STATUS_STYLES = {
@@ -180,6 +190,23 @@ function addMonths(date, months) {
 
 function isDateInRange(date, start, end) {
   return date >= start && date < end;
+}
+
+function getHistoryDate(order) {
+  return (
+    toOrderDate(order?.cancelled_at) ??
+    toOrderDate(order?.delivered_at) ??
+    toOrderDate(order?.updated_at) ??
+    toOrderDate(getOrderDate(order)) ??
+    toOrderDate(order?.created_at)
+  );
+}
+
+function isVisibleHistoryOrder(order) {
+  if (!HISTORY_ORDER_STATUSES.includes(getStatus(order))) return true;
+  const historyDate = getHistoryDate(order);
+  if (!historyDate) return true;
+  return historyDate >= addDays(startOfDay(new Date()), -HISTORY_VISIBLE_DAYS);
 }
 
 function getOrderTotal(order) {
@@ -445,7 +472,15 @@ function buildAdminInsights(orders) {
     { label: 'Delivery', value: 0 },
     { label: 'Retiro', value: 0 },
   ];
+  const timeSlots = [
+    { label: '10-12', orders: 0, revenue: 0 },
+    { label: '12-15', orders: 0, revenue: 0 },
+    { label: '15-18', orders: 0, revenue: 0 },
+    { label: '18-22', orders: 0, revenue: 0 },
+  ];
   const paymentMap = new Map();
+  const productMap = new Map();
+  const zoneMap = new Map();
   const summary = {
     todayOrders: 0,
     todayRevenue: 0,
@@ -455,13 +490,21 @@ function buildAdminInsights(orders) {
     monthRevenue: 0,
     activeOrders: 0,
     readyOrders: 0,
+    cancelledOrders: 0,
+    completedOrders: 0,
+    averageTicketMonth: 0,
+    cancellationRate: 0,
   };
 
   for (const order of orders) {
     const status = getStatus(order);
     if (ACTIVE_ORDER_STATUSES.includes(status)) summary.activeOrders += 1;
     if (status === 'ready') summary.readyOrders += 1;
-    if (status === 'cancelled') continue;
+    if (status === 'cancelled') {
+      summary.cancelledOrders += 1;
+      continue;
+    }
+    summary.completedOrders += 1;
 
     const date = getOrderAnalysisDate(order);
     if (!date) continue;
@@ -491,25 +534,61 @@ function buildAdminInsights(orders) {
       summary.monthRevenue += total;
     }
 
+    const hour = Number(String(getPreferredTime(order) || '').split(':')[0]);
+    const slot = Number.isFinite(hour)
+      ? timeSlots.find(item => {
+          const [from, to] = item.label.split('-').map(Number);
+          return hour >= from && (hour < to || (to === 22 && hour <= to));
+        })
+      : null;
+    if (slot) {
+      slot.orders += 1;
+      slot.revenue += total;
+    }
+
     const fulfillmentType = getFulfillmentType(order);
     if (fulfillmentType === 'delivery') fulfillment[0].value += 1;
     if (fulfillmentType === 'pickup') fulfillment[1].value += 1;
 
+    const zone = getDeliveryZoneLabel(order);
+    if (zone) {
+      const current = zoneMap.get(zone) ?? { label: zone, orders: 0, revenue: 0 };
+      current.orders += 1;
+      current.revenue += total;
+      zoneMap.set(zone, current);
+    }
+
     const payment = getPaymentLabel(order) || 'Sin pago';
     paymentMap.set(payment, (paymentMap.get(payment) ?? 0) + 1);
+
+    for (const item of getOrderItems(order)) {
+      const label = item?.name || 'Producto sin nombre';
+      const quantity = Number(item?.quantity ?? 1) || 1;
+      const subtotal = Number(getItemSubtotal(item) || 0);
+      const current = productMap.get(label) ?? { label, orders: 0, quantity: 0, revenue: 0 };
+      current.orders += 1;
+      current.quantity += quantity;
+      current.revenue += subtotal;
+      productMap.set(label, current);
+    }
   }
 
   const strongestWeekday = weekdays.reduce((best, day) => (
     day.orders > best.orders ? day : best
   ), weekdays[0]);
   const hasWeekdayOrders = weekdays.some(day => day.orders > 0);
+  summary.averageTicketMonth = summary.monthOrders ? Math.round(summary.monthRevenue / summary.monthOrders) : 0;
+  summary.cancellationRate = orders.length ? Math.round((summary.cancelledOrders / orders.length) * 100) : 0;
 
   return {
     ...summary,
     weekdays,
     monthDays,
     fulfillment,
+    timeSlots,
     payments: Array.from(paymentMap, ([label, value]) => ({ label, value })),
+    topProducts: Array.from(productMap.values()).sort((a, b) => b.quantity - a.quantity).slice(0, 5),
+    topZones: Array.from(zoneMap.values()).sort((a, b) => b.orders - a.orders).slice(0, 5),
     strongestWeekday: hasWeekdayOrders ? strongestWeekday : null,
   };
 }
@@ -776,6 +855,39 @@ function MiniBarChart({ title, detail, data, valueKey = 'orders', formatValue = 
   );
 }
 
+function VerticalBarChart({ title, detail, data, valueKey = 'orders', formatValue = value => value }) {
+  const max = Math.max(1, ...data.map(item => Number(item[valueKey]) || 0));
+
+  return (
+    <section className="rounded-3xl border border-[#efc6d8] bg-white p-4 shadow-[0_16px_38px_rgba(63,33,40,0.08)]">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-serif text-xl font-bold text-[#3f2128]">{title}</h3>
+          <p className="mt-1 text-xs font-semibold leading-5 text-[#3f2128]/52">{detail}</p>
+        </div>
+        <TrendingUp className="h-5 w-5 shrink-0 text-[#be185d]" />
+      </div>
+      <div className="flex h-44 items-end gap-2 overflow-x-auto rounded-3xl bg-[#fff7fb] px-3 pb-3 pt-5">
+        {data.map(item => {
+          const value = Number(item[valueKey]) || 0;
+          return (
+            <div key={item.label} className="flex min-w-[2.4rem] flex-1 flex-col items-center justify-end gap-2">
+              <span className="text-[10px] font-bold text-[#3f2128]/58">{formatValue(value)}</span>
+              <span className="flex h-28 w-full items-end rounded-full bg-[#f7dce8]">
+                <span
+                  className="block w-full rounded-full bg-gradient-to-t from-[#be185d] to-[#f472b6]"
+                  style={{ height: value ? `${Math.max(8, (value / max) * 100)}%` : '0%' }}
+                />
+              </span>
+              <span className="max-w-[3rem] truncate text-[10px] font-bold text-[#3f2128]/62">{item.label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function SplitBarChart({ title, detail, data }) {
   const total = Math.max(1, data.reduce((sum, item) => sum + item.value, 0));
 
@@ -810,15 +922,54 @@ function SplitBarChart({ title, detail, data }) {
   );
 }
 
-function AdminInsights({ insights }) {
-  const monthDaysWithOrders = insights.monthDays.filter(day => day.orders > 0);
-  const visibleMonthDays = monthDaysWithOrders.length ? monthDaysWithOrders : insights.monthDays.slice(0, 7);
+function RankingList({ title, detail, data, valueLabel }) {
+  const max = Math.max(1, ...data.map(item => item.quantity ?? item.orders ?? item.value ?? 0));
 
   return (
-    <section className="mt-5">
+    <section className="rounded-3xl border border-[#efc6d8] bg-white p-4 shadow-[0_16px_38px_rgba(63,33,40,0.08)]">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-serif text-xl font-bold text-[#3f2128]">{title}</h3>
+          <p className="mt-1 text-xs font-semibold leading-5 text-[#3f2128]/52">{detail}</p>
+        </div>
+        <PackageCheck className="h-5 w-5 shrink-0 text-[#be185d]" />
+      </div>
+      <div className="grid gap-3">
+        {data.length ? data.map(item => {
+          const value = item.quantity ?? item.orders ?? item.value ?? 0;
+          return (
+            <div key={item.label} className="rounded-2xl bg-[#fff7fb] px-3 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <p className="min-w-0 truncate text-sm font-bold text-[#3f2128]">{item.label}</p>
+                <p className="shrink-0 text-xs font-bold text-[#be185d]">{valueLabel(item)}</p>
+              </div>
+              <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-[#f7dce8]">
+                <span
+                  className="block h-full rounded-full bg-[#be185d]"
+                  style={{ width: value ? `${Math.max(8, (value / max) * 100)}%` : '0%' }}
+                />
+              </div>
+            </div>
+          );
+        }) : (
+          <p className="rounded-2xl bg-[#fff7fb] px-4 py-3 text-sm font-semibold text-[#3f2128]/52">
+            Aún no hay datos suficientes.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function AdminInsights({ insights }) {
+  const monthDaysWithOrders = insights.monthDays.filter(day => day.orders > 0);
+  const visibleMonthDays = monthDaysWithOrders.length ? monthDaysWithOrders : insights.monthDays.slice(0, 10);
+
+  return (
+    <section>
       <div className="mb-3">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#be185d]/62">Datos simples</p>
-        <h2 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Día, semana y mes</h2>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#be185d]/62">Lectura del negocio</p>
+        <h2 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Datos para decidir mejor</h2>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -837,27 +988,34 @@ function AdminInsights({ insights }) {
         <InsightCard
           label="Este mes"
           value={`${insights.monthOrders} pedidos`}
-          detail={`Ventas visibles: ${formatCLP(insights.monthRevenue)}`}
+          detail={`Ticket promedio: ${formatCLP(insights.averageTicketMonth)}`}
           Icon={ReceiptText}
         />
         <InsightCard
-          label="Pendientes"
-          value={`${insights.activeOrders} activos`}
-          detail={`${insights.readyOrders} listos para avisar o entregar`}
-          Icon={PackageCheck}
+          label="Cancelación"
+          value={`${insights.cancellationRate}%`}
+          detail={`${insights.cancelledOrders} cancelados en los datos cargados`}
+          Icon={Ban}
         />
       </div>
 
       <div className="mt-3 grid gap-3 xl:grid-cols-2">
-        <MiniBarChart
-          title="Pedidos por día"
-          detail={`Día con más pedidos: ${insights.strongestWeekday?.label ?? 'sin datos'}`}
+        <VerticalBarChart
+          title="Semana por pedidos"
+          detail={`Día más fuerte: ${insights.strongestWeekday?.label ?? 'sin datos'}`}
           data={insights.weekdays}
         />
-        <MiniBarChart
-          title="Pedidos del mes"
-          detail="Muestra los días del mes con movimiento para revisar patrones."
+        <VerticalBarChart
+          title="Mes por ventas"
+          detail="Días del mes con movimiento visible."
           data={visibleMonthDays}
+          valueKey="revenue"
+          formatValue={formatCLP}
+        />
+        <MiniBarChart
+          title="Horarios fuertes"
+          detail="Ayuda a preparar producción y respuestas por tramo horario."
+          data={insights.timeSlots}
         />
         <SplitBarChart
           title="Retiro o delivery"
@@ -869,6 +1027,87 @@ function AdminInsights({ insights }) {
           detail="Conteo simple por método registrado."
           data={insights.payments}
         />
+        <RankingList
+          title="Productos más pedidos"
+          detail="Base para decidir stock, fotos y catálogo real."
+          data={insights.topProducts}
+          valueLabel={item => `${item.quantity} uds · ${formatCLP(item.revenue)}`}
+        />
+        <RankingList
+          title="Zonas de delivery"
+          detail="Sirve para entender rutas y posibles costos."
+          data={insights.topZones}
+          valueLabel={item => `${item.orders} pedidos`}
+        />
+      </div>
+    </section>
+  );
+}
+
+function AdminTabs({ activeTab, onChange }) {
+  return (
+    <div className="mb-5 overflow-x-auto pb-1">
+      <div className="grid min-w-[42rem] grid-cols-3 gap-2 rounded-[1.6rem] border border-[#efc6d8] bg-white/78 p-2 shadow-[0_16px_42px_rgba(63,33,40,0.08)]">
+        {ADMIN_TABS.map(({ value, label, detail, Icon }) => {
+          const active = activeTab === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onChange(value)}
+              className={`flex min-h-[64px] items-center gap-3 rounded-[1.25rem] px-4 py-3 text-left transition ${
+                active
+                  ? 'bg-[#be185d] text-white shadow-[0_14px_30px_rgba(190,24,93,0.22)]'
+                  : 'bg-white text-[#3f2128] hover:bg-[#fff7fb]'
+              }`}
+            >
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${active ? 'bg-white/18' : 'bg-[#be185d]/10'}`}>
+                <Icon className={`h-4 w-4 ${active ? 'text-white' : 'text-[#be185d]'}`} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-bold">{label}</span>
+                <span className={`mt-0.5 block truncate text-xs font-semibold ${active ? 'text-white/74' : 'text-[#3f2128]/50'}`}>{detail}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CostsPlanningPanel() {
+  const costBlocks = [
+    ['Recetas base', 'Guardar ingredientes por producto: bizcocho, relleno, cobertura, empaque y decoración.'],
+    ['Mano de obra', 'Sumar tiempo real de preparación, decoración, compra y entrega.'],
+    ['Margen', 'Calcular precio sugerido con ganancia, merma y urgencias.'],
+    ['Compras', 'Detectar qué insumos se repiten más según pedidos reales.'],
+  ];
+
+  return (
+    <section>
+      <div className="mb-3">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#be185d]/62">Próxima fase</p>
+        <h2 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Costos y precios</h2>
+        <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#3f2128]/58">
+          Dejé esta pestaña separada para que el cálculo de costos no se mezcle con pedidos ni análisis. La siguiente fase puede convertir pedidos reales en precios mejor calculados.
+        </p>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        {costBlocks.map(([title, detail]) => (
+          <div key={title} className="rounded-3xl border border-[#efc6d8] bg-white p-5 shadow-[0_16px_38px_rgba(63,33,40,0.08)]">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#be185d]/10">
+                <Calculator className="h-4 w-4 text-[#be185d]" />
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-[#3f2128]">{title}</h3>
+                <p className="mt-1 text-xs font-semibold leading-5 text-[#3f2128]/56">{detail}</p>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -1392,6 +1631,7 @@ function Dashboard({ session }) {
   const [ordersError, setOrdersError] = useState('');
   const [statusError, setStatusError] = useState('');
   const [statusNotice, setStatusNotice] = useState('');
+  const [activeTab, setActiveTab] = useState('orders');
   const [activeFilter, setActiveFilter] = useState('active');
   const [selectedOrderKey, setSelectedOrderKey] = useState(null);
   const [copiedMessageKey, setCopiedMessageKey] = useState('');
@@ -1446,18 +1686,21 @@ function Dashboard({ session }) {
   const filterCounts = useMemo(() => (
     ORDER_FILTERS.reduce((acc, filter) => {
       acc[filter.value] = filter.statuses
-        ? filter.statuses.reduce((sum, status) => sum + (metrics.counts[status] ?? 0), 0)
-        : orders.length;
+        ? orders.filter(order => (
+            filter.statuses.includes(getStatus(order)) && isVisibleHistoryOrder(order)
+          )).length
+        : orders.filter(isVisibleHistoryOrder).length;
       return acc;
     }, {})
-  ), [metrics.counts, orders.length]);
+  ), [orders]);
 
   const currentFilter = ORDER_FILTERS.find(filter => filter.value === activeFilter) ?? ORDER_FILTERS[0];
   const insights = useMemo(() => buildAdminInsights(orders), [orders]);
 
   const filteredOrders = useMemo(() => {
-    if (!currentFilter.statuses) return orders;
-    return orders.filter(order => currentFilter.statuses.includes(getStatus(order)));
+    const visibleOrders = orders.filter(isVisibleHistoryOrder);
+    if (!currentFilter.statuses) return visibleOrders;
+    return visibleOrders.filter(order => currentFilter.statuses.includes(getStatus(order)));
   }, [orders, currentFilter]);
 
   const selectedOrder = useMemo(() => (
@@ -1626,76 +1869,100 @@ function Dashboard({ session }) {
         </div>
       )}
 
-      <section className="mb-4 grid gap-3 md:grid-cols-2">
-        <WorkspaceCard
-          eyebrow="Pedidos"
-          title="Ordenes del dia"
-          detail="Revisa clientes, entrega, total y estado sin entrar a Supabase."
-          Icon={PackageCheck}
-        />
-        <WorkspaceCard
-          eyebrow="WhatsApp"
-          title="Mensajes listos"
-          detail="Abre el chat del cliente o copia respuestas para confirmar y avisar avances."
-          Icon={MessageCircle}
-          muted
-        />
-      </section>
+      <AdminTabs activeTab={activeTab} onChange={setActiveTab} />
 
-      <section className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <MetricCard label="Nuevos" value={metrics.counts.pending ?? 0} Icon={Clock3} />
-        <MetricCard label="Confirmados" value={metrics.counts.confirmed ?? 0} Icon={CheckCircle2} />
-        <MetricCard label="En preparación" value={metrics.counts.preparing ?? 0} Icon={PackageCheck} />
-        <MetricCard label="Listos" value={metrics.counts.ready ?? 0} Icon={PackageCheck} />
-        <MetricCard label="Entregados" value={metrics.counts.delivered ?? 0} Icon={Truck} />
-        <MetricCard label="Ventas visibles" value={formatCLP(metrics.revenue)} Icon={BarChart3} />
-      </section>
+      {activeTab === 'orders' && (
+        <>
+          <section className="mb-4 grid gap-3 md:grid-cols-2">
+            <WorkspaceCard
+              eyebrow="Pedidos"
+              title="Operación del día"
+              detail="Atiende solo lo que necesita acción: nuevo, confirmado, preparación y listo."
+              Icon={PackageCheck}
+            />
+            <WorkspaceCard
+              eyebrow="WhatsApp"
+              title="Respuestas rápidas"
+              detail="Abre el chat del cliente o copia mensajes para confirmar, pedir abono y avisar avances."
+              Icon={MessageCircle}
+              muted
+            />
+          </section>
 
-      <StatusBars counts={metrics.counts} />
-      <AdminInsights insights={insights} />
+          <section className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
+            <MetricCard label="Nuevos" value={metrics.counts.pending ?? 0} Icon={Clock3} />
+            <MetricCard label="Confirmados" value={metrics.counts.confirmed ?? 0} Icon={CheckCircle2} />
+            <MetricCard label="En preparación" value={metrics.counts.preparing ?? 0} Icon={PackageCheck} />
+            <MetricCard label="Listos" value={metrics.counts.ready ?? 0} Icon={PackageCheck} />
+          </section>
 
-      <section className="mt-6">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#be185d]/54">Operación</p>
-            <h2 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Pedidos recientes</h2>
-          </div>
-          <button
-            type="button"
-            onClick={loadOrders}
-            className="inline-flex items-center gap-2 rounded-2xl border border-pink-100 bg-white px-4 py-2 text-sm font-bold text-[#be185d] shadow-sm"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Actualizar
-          </button>
-        </div>
-        <div className="mb-4">
-          <OrdersFilters activeFilter={activeFilter} counts={filterCounts} onChange={setActiveFilter} />
-        </div>
-        {statusError && (
-          <p className="mb-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-500">
-            No se pudo actualizar el estado: {statusError}
-          </p>
-        )}
-        {statusNotice && (
-          <p className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-            {statusNotice}
-          </p>
-        )}
-        <OrdersTable
-          orders={filteredOrders}
-          loading={loadingOrders}
-          error={ordersError}
-          onRefresh={loadOrders}
-          onOpenDetails={handleOpenDetails}
-          onStatusChange={handleStatusChange}
-          onRequestCancel={openCancelOrder}
-          updatingStatusId={updatingStatusId}
-          cancellingOrderId={cancellingOrderId}
-          emptyTitle={orders.length ? `Sin pedidos en ${currentFilter.label.toLowerCase()}` : 'Sin pedidos todavia'}
-          emptyDetail={orders.length ? 'Cambia el filtro para revisar otros pedidos recientes o entra a Historial.' : 'Los nuevos pedidos apareceran aqui despues de enviarse por WhatsApp. Si acabas de hacer una prueba, espera unos segundos y toca Actualizar.'}
-        />
-      </section>
+          <section className="mt-6">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#be185d]/54">Operación</p>
+                <h2 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Pedidos recientes</h2>
+                <p className="mt-1 text-xs font-semibold leading-5 text-[#3f2128]/50">
+                  Historial, entregados y cancelados muestran solo los últimos {HISTORY_VISIBLE_DAYS} días. No se borran de Supabase.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={loadOrders}
+                className="inline-flex items-center gap-2 rounded-2xl border border-pink-100 bg-white px-4 py-2 text-sm font-bold text-[#be185d] shadow-sm"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Actualizar
+              </button>
+            </div>
+            <div className="mb-4">
+              <OrdersFilters activeFilter={activeFilter} counts={filterCounts} onChange={setActiveFilter} />
+            </div>
+            {statusError && (
+              <p className="mb-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-500">
+                No se pudo actualizar el estado: {statusError}
+              </p>
+            )}
+            {statusNotice && (
+              <p className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+                {statusNotice}
+              </p>
+            )}
+            <OrdersTable
+              orders={filteredOrders}
+              loading={loadingOrders}
+              error={ordersError}
+              onRefresh={loadOrders}
+              onOpenDetails={handleOpenDetails}
+              onStatusChange={handleStatusChange}
+              onRequestCancel={openCancelOrder}
+              updatingStatusId={updatingStatusId}
+              cancellingOrderId={cancellingOrderId}
+              emptyTitle={orders.length ? `Sin pedidos en ${currentFilter.label.toLowerCase()}` : 'Sin pedidos todavia'}
+              emptyDetail={orders.length ? `Cambia el filtro para revisar pedidos recientes. Los cerrados de más de ${HISTORY_VISIBLE_DAYS} días quedan ocultos de esta vista.` : 'Los nuevos pedidos apareceran aqui despues de enviarse por WhatsApp. Si acabas de hacer una prueba, espera unos segundos y toca Actualizar.'}
+            />
+          </section>
+        </>
+      )}
+
+      {activeTab === 'insights' && (
+        <>
+          <section className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
+            <MetricCard label="Activos" value={insights.activeOrders} Icon={PackageCheck} />
+            <MetricCard label="Listos" value={insights.readyOrders} Icon={CheckCircle2} />
+            <MetricCard label="Entregados" value={metrics.counts.delivered ?? 0} Icon={Truck} />
+            <MetricCard label="Cancelados" value={metrics.counts.cancelled ?? 0} Icon={Ban} />
+            <MetricCard label="Ticket mes" value={formatCLP(insights.averageTicketMonth)} Icon={ReceiptText} />
+            <MetricCard label="Ventas visibles" value={formatCLP(metrics.revenue)} Icon={BarChart3} />
+          </section>
+
+          <StatusBars counts={metrics.counts} />
+          <section className="mt-5">
+            <AdminInsights insights={insights} />
+          </section>
+        </>
+      )}
+
+      {activeTab === 'costs' && <CostsPlanningPanel />}
 
       {selectedOrder && (
         <OrderDetailSheet
