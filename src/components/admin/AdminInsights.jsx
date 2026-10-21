@@ -14,9 +14,9 @@ function OperationalLoadChart({ counts }) {
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#be185d]/50">Carga operativa</p>
-          <h2 className="mt-1 font-serif text-xl font-bold text-[#3f2128]">Prioridad del dia</h2>
+          <h2 className="mt-1 font-serif text-xl font-bold text-[#3f2128]">Prioridad del día</h2>
           <p className="mt-1 text-xs font-semibold leading-5 text-[#3f2128]/52">
-            {activeTotal ? `${activeTotal} pedidos activos. Mas atencion en ${STATUS_LABELS[busiestStatus]}.` : 'Sin pedidos activos por atender.'}
+            {activeTotal ? `${activeTotal} pedidos activos. Más atención en ${STATUS_LABELS[busiestStatus]}.` : 'Sin pedidos activos por atender.'}
           </p>
         </div>
         <BarChart3 className="h-5 w-5 text-[#be185d]" />
@@ -278,8 +278,8 @@ function InsightsDashboard({ insights }) {
           data={insights.weekdays}
         />
         <VerticalBarChart
-          title="Ventas por dia del mes"
-          detail="Muestra que fechas concentraron mas venta visible."
+          title="Ventas por día del mes"
+          detail="Qué fechas tuvieron más ventas."
           data={visibleMonthDays}
           valueKey="revenue"
           formatValue={formatCLP}

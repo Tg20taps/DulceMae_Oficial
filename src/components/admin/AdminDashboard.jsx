@@ -6,18 +6,18 @@ import {
   Calculator,
   ClipboardList,
   LogOut,
-  PackageCheck,
   RefreshCw,
   Sparkles,
-  UserRound,
+  Store,
 } from 'lucide-react';
 import { fetchAdminOrders, signOutAdmin, updateAdminOrder } from '../../lib/adminApi';
 import { adminAllowedEmails } from '../../lib/supabaseConfig';
 import { AdminFrame } from './AdminAuth';
+import AdminCatalog from './AdminCatalog';
 import AdminCosts from './AdminCosts';
 import AdminInsights from './AdminInsights';
 import AdminOrders, { OrderDetailSheet } from './AdminOrders';
-import AdminStock from './AdminStock';
+import { Toast, useNotice } from './AdminUi';
 import {
   buildAdminInsights,
   CANCELLATION_REASON_LABELS,
@@ -35,15 +35,16 @@ import {
 
 const ADMIN_TABS = [
   { value: 'orders', label: 'Pedidos', detail: 'Atender y responder', Icon: ClipboardList },
-  { value: 'insights', label: 'Analisis', detail: 'Dia, semana y mes', Icon: BarChart3 },
-  { value: 'costs', label: 'Costos', detail: 'Calcular precios', Icon: Calculator },
-  { value: 'stock', label: 'Stock', detail: 'Semaforo e insumos', Icon: PackageCheck },
+  { value: 'catalog', label: 'Catálogo', detail: 'Productos y precios', Icon: Store },
+  { value: 'costs', label: 'Costos', detail: 'Recetas e ingredientes', Icon: Calculator },
+  { value: 'insights', label: 'Resumen', detail: 'Cómo va el mes', Icon: BarChart3 },
 ];
 
-function AdminTabs({ activeTab, onChange }) {
+// Computador: pestañas arriba. Celular: barra fija abajo, al alcance del pulgar.
+function AdminTabs({ activeTab, onChange, pendingCount }) {
   return (
-    <div className="mb-5 overflow-x-auto pb-1">
-      <div className="grid min-w-[54rem] grid-cols-4 gap-2 rounded-[1.6rem] border border-[#efc6d8] bg-white/78 p-2 shadow-[0_16px_42px_rgba(63,33,40,0.08)]">
+    <>
+      <div className="mb-5 hidden grid-cols-4 gap-2 rounded-[1.6rem] border border-[#efc6d8] bg-white/78 p-2 shadow-[0_16px_42px_rgba(63,33,40,0.08)] md:grid">
         {ADMIN_TABS.map(({ value, label, detail, Icon }) => {
           const active = activeTab === value;
           return (
@@ -61,14 +62,51 @@ function AdminTabs({ activeTab, onChange }) {
                 <Icon className={`h-4 w-4 ${active ? 'text-white' : 'text-[#be185d]'}`} />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-bold">{label}</span>
+                <span className="block text-sm font-bold">
+                  {label}
+                  {value === 'orders' && pendingCount > 0 && (
+                    <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${active ? 'bg-white text-[#be185d]' : 'bg-[#be185d] text-white'}`}>{pendingCount}</span>
+                  )}
+                </span>
                 <span className={`mt-0.5 block truncate text-xs font-semibold ${active ? 'text-white/74' : 'text-[#3f2128]/50'}`}>{detail}</span>
               </span>
             </button>
           );
         })}
       </div>
-    </div>
+
+      <nav
+        aria-label="Secciones del panel"
+        className="fixed inset-x-0 bottom-0 z-[250] border-t border-[#efc6d8] bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgba(63,33,40,0.08)] backdrop-blur md:hidden"
+      >
+        <div className="grid grid-cols-4">
+          {ADMIN_TABS.map(({ value, label, Icon }) => {
+            const active = activeTab === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onChange(value)}
+                aria-current={active ? 'page' : undefined}
+                className={`relative flex min-h-[64px] flex-col items-center justify-center gap-1 text-xs font-bold ${
+                  active ? 'text-[#be185d]' : 'text-[#3f2128]/55'
+                }`}
+              >
+                <span className={`flex h-8 w-14 items-center justify-center rounded-full ${active ? 'bg-[#be185d]/12' : ''}`}>
+                  <Icon className="h-5 w-5" />
+                </span>
+                {label}
+                {value === 'orders' && pendingCount > 0 && (
+                  <span className="absolute right-[18%] top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#be185d] px-1 text-[11px] text-white">
+                    {pendingCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+    </>
   );
 }
 
@@ -86,6 +124,12 @@ export default function AdminDashboard({ session, onSignOut }) {
   const [cancellingOrderId, setCancellingOrderId] = useState(null);
   const [cancelDraft, setCancelDraft] = useState(null);
   const [cancelError, setCancelError] = useState('');
+  const { notice, show: showNotice, clear: clearNotice } = useNotice();
+
+  function changeTab(tab) {
+    setActiveTab(tab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
   const loadOrders = useCallback(async () => {
     setLoadingOrders(true);
@@ -275,25 +319,29 @@ export default function AdminDashboard({ session, onSignOut }) {
 
   return (
     <AdminFrame>
-      <header className="mb-5 flex flex-col gap-4 rounded-[2rem] border border-[#efc6d8] bg-white/92 px-4 py-4 shadow-[0_18px_48px_rgba(63,33,40,0.09)] backdrop-blur-xl sm:px-5 sm:py-5 md:flex-row md:items-center md:justify-between">
+      <header className="mb-5 flex items-center justify-between gap-3 rounded-[2rem] border border-[#efc6d8] bg-white/92 px-4 py-3 shadow-[0_18px_48px_rgba(63,33,40,0.09)] backdrop-blur-xl sm:px-5 sm:py-5">
         <div className="flex items-center gap-4">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#be185d]/10 sm:h-12 sm:w-12">
             <Sparkles className="h-5 w-5 text-[#be185d]" />
           </div>
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#be185d]/60">Panel privado</p>
-            <h1 className="mt-1 font-serif text-2xl font-bold text-[#3f2128] sm:text-3xl">DulceMae Admin</h1>
+            <h1 className="mt-1 font-serif text-2xl font-bold text-[#3f2128] sm:text-3xl">DulceMae</h1>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-pink-100 bg-white px-4 py-2 text-xs font-bold text-[#3f2128]/62">
-            <UserRound className="h-4 w-4 text-[#be185d]" />
-            <span className="truncate">{session.user.email}</span>
-          </span>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <a
+            href="/"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-[40px] items-center gap-2 rounded-2xl border border-pink-100 bg-white px-4 py-2 text-xs font-bold text-[#3f2128]/70"
+          >
+            Ver la página
+          </a>
           <button
             type="button"
             onClick={handleSignOut}
-            className="inline-flex items-center gap-2 rounded-2xl bg-[#3f2128] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:-translate-y-0.5"
+            className="inline-flex min-h-[40px] items-center gap-2 rounded-2xl bg-[#3f2128] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:-translate-y-0.5"
           >
             <LogOut className="h-4 w-4" />
             Salir
@@ -307,7 +355,8 @@ export default function AdminDashboard({ session, onSignOut }) {
         </div>
       )}
 
-      <AdminTabs activeTab={activeTab} onChange={setActiveTab} />
+      <Toast notice={notice} onDone={clearNotice} />
+      <AdminTabs activeTab={activeTab} onChange={changeTab} pendingCount={metrics.counts.pending ?? 0} />
 
       {activeTab === 'orders' && (
         <AdminOrders
@@ -331,9 +380,12 @@ export default function AdminDashboard({ session, onSignOut }) {
         />
       )}
 
+      {activeTab === 'catalog' && <AdminCatalog session={session} showNotice={showNotice} />}
+      {activeTab === 'costs' && <AdminCosts session={session} showNotice={showNotice} />}
       {activeTab === 'insights' && <AdminInsights insights={insights} metrics={metrics} />}
-      {activeTab === 'costs' && <AdminCosts />}
-      {activeTab === 'stock' && <AdminStock />}
+
+      {/* Espacio para que la barra inferior del celular no tape el contenido. */}
+      <div className="h-24 md:hidden" aria-hidden="true" />
 
       {selectedOrder && (
         <OrderDetailSheet

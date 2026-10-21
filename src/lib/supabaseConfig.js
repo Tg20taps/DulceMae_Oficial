@@ -34,3 +34,8 @@ export function buildSupabaseAuthUrl(path) {
   const cleanPath = String(path || '').replace(/^\/+/, '');
   return `${supabaseUrl}/auth/v1/${cleanPath}`;
 }
+
+export function buildSupabaseStorageUrl(path) {
+  const cleanPath = String(path || '').replace(/^\/+/, '');
+  return `${supabaseUrl}/storage/v1/${cleanPath}`;
+}

@@ -6,7 +6,7 @@ import { buildCustomerWhatsAppUrl, buildQuickMessages, formatCLP, formatOrderDat
 const STATUS_ACTIONS = [
   { value: 'pending', label: 'Nuevo', Icon: Clock3 },
   { value: 'confirmed', label: 'Confirmar', Icon: CheckCircle2 },
-  { value: 'preparing', label: 'En preparacion', Icon: PackageCheck },
+  { value: 'preparing', label: 'En preparación', Icon: PackageCheck },
   { value: 'ready', label: 'Listo', Icon: CheckCircle2 },
   { value: 'delivered', label: 'Entregado', Icon: PackageCheck },
 ];
@@ -14,7 +14,7 @@ const STATUS_ACTIONS = [
 function getNextStatusAction(order) {
   const status = getStatus(order);
   if (status === 'pending') return { value: 'confirmed', label: 'Confirmar pedido', Icon: CheckCircle2 };
-  if (status === 'confirmed') return { value: 'preparing', label: 'Pasar a preparacion', Icon: PackageCheck };
+  if (status === 'confirmed') return { value: 'preparing', label: 'Pasar a preparación', Icon: PackageCheck };
   if (status === 'preparing') return { value: 'ready', label: 'Marcar listo', Icon: CheckCircle2 };
   if (status === 'ready') return { value: 'delivered', label: 'Marcar entregado', Icon: PackageCheck };
   return null;
@@ -153,7 +153,7 @@ function OrderCard({
         </p>
         <p className="flex items-center gap-2">
           <PhoneCall className="h-4 w-4 text-[#be185d]" />
-          {getCustomerPhone(order) || 'Sin telefono'}
+          {getCustomerPhone(order) || 'Sin teléfono'}
         </p>
       </div>
 
@@ -361,15 +361,15 @@ export function OrderDetailSheet({
 
         <div className="max-h-[calc(92vh-12rem)] overflow-y-auto px-4 py-5 sm:px-6">
           <div className="grid gap-3 sm:grid-cols-2">
-            <DetailField label="Telefono" value={getCustomerPhone(order) || 'Sin telefono'} Icon={PhoneCall} />
+            <DetailField label="Teléfono" value={getCustomerPhone(order) || 'Sin teléfono'} Icon={PhoneCall} />
             <DetailField
               label="Entrega"
               value={`${formatOrderDate(getOrderDate(order), { long: true })} - ${formatOrderTime(getPreferredTime(order))}`}
               Icon={CalendarDays}
             />
             <DetailField label="Modalidad" value={getFulfillmentText(order)} Icon={Truck} />
-            <DetailField label="Pago" value={getPaymentLabel(order) || 'Sin metodo'} Icon={ReceiptText} />
-            {deliveryAddress && <DetailField label="Direccion" value={deliveryAddress} Icon={Truck} />}
+            <DetailField label="Pago" value={getPaymentLabel(order) || 'Sin método'} Icon={ReceiptText} />
+            {deliveryAddress && <DetailField label="Dirección" value={deliveryAddress} Icon={Truck} />}
             {comments && <DetailField label="Comentarios" value={comments} Icon={MessageCircle} />}
           </div>
 
@@ -454,8 +454,8 @@ function OrdersTable({
   onRequestCancel,
   updatingStatusId,
   cancellingOrderId,
-  emptyTitle = 'Sin pedidos todavia',
-  emptyDetail = 'Los nuevos pedidos apareceran aqui despues de enviarse por WhatsApp. Si acabas de hacer una prueba, espera unos segundos y toca Actualizar.',
+  emptyTitle = 'Sin pedidos todavía',
+  emptyDetail = 'Los pedidos nuevos aparecen aquí apenas el cliente los envía desde la página. Toca Actualizar para ver los últimos.',
 }) {
   if (loading) {
     return (
@@ -535,16 +535,17 @@ export default function AdminOrders({
 }) {
   return (
     <>
-      <section className="mb-4 grid gap-3 md:grid-cols-2">
+      {/* En celular se van directo a los números y pedidos; la explicación queda para pantallas grandes. */}
+      <section className="mb-4 hidden gap-3 md:grid md:grid-cols-2">
         <WorkspaceCard
           eyebrow="Pedidos"
-          title="Operacion del dia"
-          detail="Atiende solo lo que necesita accion: nuevo, confirmado, preparacion y listo."
+          title="Lo de hoy"
+          detail="Atiende sólo lo que necesita acción: nuevo, confirmado, en preparación y listo."
           Icon={PackageCheck}
         />
         <WorkspaceCard
           eyebrow="WhatsApp"
-          title="Respuestas rapidas"
+          title="Respuestas rápidas"
           detail="Abre el chat del cliente o copia mensajes para confirmar, pedir abono y avisar avances."
           Icon={MessageCircle}
           muted
@@ -554,17 +555,17 @@ export default function AdminOrders({
       <section className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
         <MetricCard label="Nuevos" value={metrics.counts.pending ?? 0} Icon={Clock3} />
         <MetricCard label="Confirmados" value={metrics.counts.confirmed ?? 0} Icon={CheckCircle2} />
-        <MetricCard label="En preparacion" value={metrics.counts.preparing ?? 0} Icon={PackageCheck} />
+        <MetricCard label="En preparación" value={metrics.counts.preparing ?? 0} Icon={PackageCheck} />
         <MetricCard label="Listos" value={metrics.counts.ready ?? 0} Icon={PackageCheck} />
       </section>
 
       <section className="mt-6">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#be185d]/54">Operacion</p>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#be185d]/54">Pedidos</p>
             <h2 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">Pedidos recientes</h2>
             <p className="mt-1 text-xs font-semibold leading-5 text-[#3f2128]/50">
-              Historial, entregados y cancelados muestran solo los ultimos {HISTORY_VISIBLE_DAYS} dias. No se borran de Supabase.
+              Entregados y cancelados se muestran por {HISTORY_VISIBLE_DAYS} días. No se borran.
             </p>
           </div>
           <button
@@ -599,8 +600,8 @@ export default function AdminOrders({
           onRequestCancel={onRequestCancel}
           updatingStatusId={updatingStatusId}
           cancellingOrderId={cancellingOrderId}
-          emptyTitle={orders.length ? `Sin pedidos en ${currentFilter.label.toLowerCase()}` : 'Sin pedidos todavia'}
-          emptyDetail={orders.length ? `Cambia el filtro para revisar pedidos recientes. Los cerrados de mas de ${HISTORY_VISIBLE_DAYS} dias quedan ocultos de esta vista.` : 'Los nuevos pedidos apareceran aqui despues de enviarse por WhatsApp. Si acabas de hacer una prueba, espera unos segundos y toca Actualizar.'}
+          emptyTitle={orders.length ? `Sin pedidos en ${currentFilter.label.toLowerCase()}` : 'Sin pedidos todavía'}
+          emptyDetail={orders.length ? `Cambia el filtro para revisar pedidos recientes. Los cerrados hace más de ${HISTORY_VISIBLE_DAYS} días no se muestran aquí.` : 'Los pedidos nuevos aparecen aquí apenas el cliente los envía desde la página. Toca Actualizar para ver los últimos.'}
         />
       </section>
     </>

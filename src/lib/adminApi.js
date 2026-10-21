@@ -1,6 +1,7 @@
 import {
   buildSupabaseAuthUrl,
   buildSupabaseRestUrl,
+  buildSupabaseStorageUrl,
   isSupabaseConfigured,
   supabaseAnonKey,
 } from './supabaseConfig';
@@ -213,4 +214,95 @@ export async function updateAdminOrder(session, id, payload) {
   });
 
   return { error };
+}
+
+// ── Catálogo, fotos y costos ────────────────────────────────────────────
+
+const SESSION_EXPIRED = 'La sesión se cerró. Vuelve a entrar.';
+const PRODUCT_BUCKET = 'productos';
+
+// Traduce los errores técnicos de Supabase a algo que se entienda.
+export function friendlyError(error) {
+  const text = String(error || '');
+  if (!text) return '';
+  if (/failed to fetch|networkerror|load failed/i.test(text)) return 'Sin conexión. Revisa el internet e intenta de nuevo.';
+  if (/jwt|expired|sesi[oó]n/i.test(text)) return SESSION_EXPIRED;
+  if (/ingredients_name_key/.test(text)) return 'Ya tienes un ingrediente con ese nombre.';
+  if (/recipe_items_ingredient_id_fkey/.test(text)) return 'Ese ingrediente se usa en una receta. Quítalo de la receta antes de borrarlo.';
+  if (/duplicate key/i.test(text)) return 'Ya existe uno con ese nombre.';
+  if (/row-level security|permission denied/i.test(text)) return 'Tu usuario no tiene permiso para hacer esto.';
+  if (/payload too large|exceeded the maximum/i.test(text)) return 'La foto es muy pesada. Prueba con otra.';
+  if (/check constraint/i.test(text)) return 'Revisa los datos: hay algún campo vacío o fuera de rango.';
+  return text;
+}
+
+export async function adminRest(session, path, { method = 'GET', body, prefer } = {}) {
+  const activeSession = await getActiveSession(session);
+  if (!activeSession) return { data: null, error: SESSION_EXPIRED };
+
+  const headers = { ...authHeaders(activeSession) };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (prefer) headers.Prefer = prefer;
+
+  try {
+    const result = await requestJson(buildSupabaseRestUrl(path), {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    return { data: result.data, error: friendlyError(result.error) };
+  } catch (error) {
+    return { data: null, error: friendlyError(error.message) };
+  }
+}
+
+export function adminRpc(session, functionName, args) {
+  return adminRest(session, `rpc/${functionName}`, { method: 'POST', body: args });
+}
+
+function storageObjectUrl(path) {
+  return buildSupabaseStorageUrl(`object/${path}`);
+}
+
+export async function uploadProductImage(session, blob, extension) {
+  const activeSession = await getActiveSession(session);
+  if (!activeSession) return { data: null, error: SESSION_EXPIRED };
+
+  const now = new Date();
+  const folder = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const name = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const path = `${folder}/${name}.${extension}`;
+
+  try {
+    const response = await fetch(storageObjectUrl(`${PRODUCT_BUCKET}/${path}`), {
+      method: 'POST',
+      headers: {
+        ...authHeaders(activeSession),
+        'Content-Type': blob.type,
+        'cache-control': 'max-age=31536000',
+      },
+      body: blob,
+    });
+    if (!response.ok) return { data: null, error: friendlyError(await parseResponseError(response)) };
+  } catch (error) {
+    return { data: null, error: friendlyError(error.message) };
+  }
+
+  return {
+    data: { path, url: storageObjectUrl(`public/${PRODUCT_BUCKET}/${path}`) },
+    error: null,
+  };
+}
+
+// Borrar la foto vieja es limpieza: si falla, el producto igual queda bien.
+export async function deleteProductImage(session, path) {
+  if (!path) return;
+  const activeSession = await getActiveSession(session);
+  if (!activeSession) return;
+  await fetch(storageObjectUrl(`${PRODUCT_BUCKET}/${path}`), {
+    method: 'DELETE',
+    headers: authHeaders(activeSession),
+  }).catch(() => {});
 }
