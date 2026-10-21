@@ -1,0 +1,10 @@
+rembg[cpu]>=2.0.60
+pillow>=10.0
+numpy>=1.26
+scipy>=1.11
+
+# Opcional: abrir fotos .HEIC de iPhone tal como salen del celular.
+# pillow-heif>=0.16
+
+# Sólo para correr las pruebas.
+pytest>=8.0
