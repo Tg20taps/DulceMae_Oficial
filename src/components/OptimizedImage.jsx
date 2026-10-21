@@ -44,6 +44,8 @@ const OptimizedImage = forwardRef(function OptimizedImage(
       alt={alt}
       loading={loading}
       decoding="async"
+      // React 18 no reconoce fetchPriority; en minúscula llega tal cual al HTML.
+      // eslint-disable-next-line react/no-unknown-property
       fetchpriority={priority}
       className={className}
       {...props}

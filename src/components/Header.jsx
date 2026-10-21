@@ -6,9 +6,9 @@ import { trackEvent } from '../utils/analytics';
 
 const NAV_LINKS = [
   { label: 'Inicio', href: '#inicio' },
-  { label: 'Sobre Nosotros', href: '#nosotros' },
-  { label: 'Catalogo', href: '#catalogo' },
-  { label: 'Encuentranos', href: '#ubicacion' },
+  { label: 'Catálogo', href: '#catalogo' },
+  { label: 'Nosotros', href: '#nosotros' },
+  { label: 'Encuéntranos', href: '#ubicacion' },
 ];
 
 function scrollTo(href) {

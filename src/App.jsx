@@ -8,6 +8,8 @@ import Footer from './components/Footer';
 import GlazePreloader from './components/GlazePreloader';
 import SectionWrapper from './components/SectionWrapper';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { CatalogProvider, useCatalog } from './context/CatalogContext';
+import { useCart } from './context/CartContext';
 import { trackEvent } from './utils/analytics';
 
 const About = lazy(() => import('./components/About'));
@@ -64,6 +66,18 @@ function BackgroundCanvas() {
       />
     </div>
   );
+}
+
+// Con el catálogo cargado, saca del carro lo que ya no se vende y actualiza precios.
+function CartCatalogSync() {
+  const { status, products } = useCatalog();
+  const { syncWithCatalog } = useCart();
+
+  useEffect(() => {
+    if (status === 'ready') syncWithCatalog(products);
+  }, [status, products, syncWithCatalog]);
+
+  return null;
 }
 
 function SectionFallback() {
@@ -139,6 +153,7 @@ class AdminErrorBoundary extends React.Component {
 
 function AppInterior() {
   const [showToast, setShowToast] = useState(false);
+  const { isCartOpen } = useCart();
   const [preloading, setPreloading] = useState(() => !sessionStorage.getItem('dm_visited'));
   const { setTheme } = useTheme();
 
@@ -156,8 +171,8 @@ function AppInterior() {
   useEffect(() => {
     const sectionThemes = [
       ['inicio', 'default'],
-      ['nosotros', 'redVelvet'],
       ['catalogo', 'berries'],
+      ['nosotros', 'redVelvet'],
       ['ubicacion', 'honey'],
       ['footer', 'caramel'],
     ];
@@ -219,15 +234,15 @@ function AppInterior() {
             <Hero />
           </SectionWrapper>
 
-          <SectionWrapper id="nosotros" delay={0.05}>
-            <Suspense fallback={<SectionFallback />}>
-              <About />
-            </Suspense>
-          </SectionWrapper>
-
           <SectionWrapper id="catalogo" delay={0.05}>
             <Suspense fallback={<SectionFallback />}>
               <Catalog />
+            </Suspense>
+          </SectionWrapper>
+
+          <SectionWrapper id="nosotros" delay={0.05}>
+            <Suspense fallback={<SectionFallback />}>
+              <About />
             </Suspense>
           </SectionWrapper>
 
@@ -247,7 +262,8 @@ function AppInterior() {
       <FloatingCart />
 
       <AnimatePresence>
-        {showToast && (
+        {/* Con el carro abierto el producto ya se ve agregado: el aviso sólo taparía. */}
+        {showToast && !isCartOpen && (
           <motion.div
             initial={{ y: -18, opacity: 0, scale: 0.96, x: '-50%' }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -287,7 +303,10 @@ export default function App() {
           </Suspense>
         </AdminErrorBoundary>
       ) : (
-        <AppInterior />
+        <CatalogProvider>
+          <CartCatalogSync />
+          <AppInterior />
+        </CatalogProvider>
       )}
     </ThemeProvider>
   );

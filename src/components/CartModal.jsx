@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { X, Minus, Plus, Trash2, Calendar, User, ArrowRight, Sparkles, ChevronLeft, Phone, Clock3, MessageSquare, AlertCircle, MapPin, CreditCard, Home } from 'lucide-react';
+import { X, Minus, Plus, Trash2, Calendar, User, ArrowRight, Sparkles, ChevronLeft, Phone, Clock3, MessageSquare, AlertCircle, MapPin, CreditCard, Home, CheckCircle2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { useCatalog } from '../context/CatalogContext';
+import { NEGOCIO, enlaceWhatsApp } from '../config/negocio';
 import { trackEvent } from '../utils/analytics';
 import OptimizedImage from './OptimizedImage';
 
@@ -128,48 +130,30 @@ function EmptyCartIllustration() {
    • UX: estado vacío más expressivo
 ══════════════════════════════════════════════════════════════ */
 
-/* ── Upsell products ─────────────────────────────────────────── */
-const UPSELL_ITEMS = [
-  {
-    id: 'upsell-velas',
-    name: 'Velas Decorativas',
-    subtitle: 'Set de 3 · Con encendedor',
-    price: 3500,
-    emoji: '🕯️',
-    accent: '#f97316',
-    gradientFrom: '#fff7ed',
-    gradientTo: '#ffedd5',
-    border: 'rgba(249,115,22,0.25)',
-    borderHover: 'rgba(249,115,22,0.7)',
-    tag: 'Más pedido',
-  },
-  {
-    id: 'upsell-alfajores',
-    name: 'Alfajores x6',
-    subtitle: 'Maicena · Manjar artesanal',
-    price: 6900,
-    emoji: '🍪',
-    accent: '#be185d',
-    gradientFrom: '#fff0f5',
-    gradientTo: '#fce7f3',
-    border: 'rgba(190,24,93,0.2)',
-    borderHover: 'rgba(190,24,93,0.6)',
-    tag: '⭐ Favorito',
-  },
-  {
-    id: 'upsell-caja',
-    name: 'Caja Regalo',
-    subtitle: 'Lazo + tarjeta personalizada',
-    price: 4200,
-    emoji: '🎁',
-    accent: '#7c3aed',
-    gradientFrom: '#f5f3ff',
-    gradientTo: '#ede9fe',
-    border: 'rgba(124,58,237,0.2)',
-    borderHover: 'rgba(124,58,237,0.6)',
-    tag: 'Nuevo',
-  },
-];
+/* ── Sugerencias del carro ───────────────────────────────────
+   Salen de los productos marcados "Sugerir en el carro" en el admin.
+─────────────────────────────────────────────────────────────── */
+const UPSELL_STYLE = {
+  accent: '#be185d',
+  gradientFrom: '#fff0f5',
+  gradientTo: '#fce7f3',
+  border: 'rgba(190,24,93,0.2)',
+  borderHover: 'rgba(190,24,93,0.6)',
+  tag: 'Sugerido',
+};
+
+function toUpsellItem(product) {
+  return {
+    ...UPSELL_STYLE,
+    id: product.id,
+    product,
+    name: product.name,
+    subtitle: product.description || product.category,
+    price: product.price,
+    image: product.image,
+    emoji: '🎂',
+  };
+}
 
 function formatCLP(n) {
   return `$${n.toLocaleString('es-CL')}`;
@@ -200,38 +184,24 @@ function isValidChileanMobile(value) {
   return digits.length === 11 && digits.startsWith('569');
 }
 
-const ALERCE_DELIVERY_FEE_CLP = 3000;
-const PUERTO_MONTT_DELIVERY_FEE_CLP = 5500;
-const DEFAULT_DELIVERY_ZONE = 'alerce_cercano';
-const DELIVERY_ZONES = [
-  {
-    value: DEFAULT_DELIVERY_ZONE,
-    label: 'Alerce cercano',
-    detail: `Suma ${formatCLP(ALERCE_DELIVERY_FEE_CLP)}`,
-    fee: ALERCE_DELIVERY_FEE_CLP,
-    feeKnown: true,
-    note: 'Costo fijo para sectores cercanos de Alerce.',
-  },
-  {
-    value: 'puerto_montt',
-    label: 'Puerto Montt / sectores',
-    detail: `Suma ${formatCLP(PUERTO_MONTT_DELIVERY_FEE_CLP)}`,
-    fee: PUERTO_MONTT_DELIVERY_FEE_CLP,
-    feeKnown: true,
-    note: 'Costo fijo para Puerto Montt y sectores disponibles.',
-  },
+// Zonas y costos de delivery vienen de Supabase (tabla delivery_zones).
+// Si no cargaron, el delivery se coordina por WhatsApp.
+const FALLBACK_ZONES = [
   {
     value: 'fuera_zona',
-    label: 'Fuera de zona',
-    detail: 'Coordinar disponibilidad',
+    label: 'Coordinar por WhatsApp',
+    note: 'Se coordina disponibilidad y costo antes de confirmar el pedido.',
     fee: 0,
     feeKnown: false,
-    note: 'Se coordina disponibilidad y costo antes de confirmar el pedido.',
   },
 ];
 
-function getDeliveryZone(value) {
-  return DELIVERY_ZONES.find(zone => zone.value === value) ?? DELIVERY_ZONES[0];
+function zoneDetail(zone) {
+  return zone.feeKnown ? `Suma ${formatCLP(zone.fee)}` : 'Costo por coordinar';
+}
+
+function getDeliveryZone(zones, value) {
+  return zones.find(zone => zone.value === value) ?? zones[0];
 }
 
 function formatDateInputValue(date) {
@@ -244,7 +214,7 @@ function formatDateInputValue(date) {
 function getMinCheckoutDate() {
   const date = new Date();
   date.setHours(12, 0, 0, 0);
-  date.setDate(date.getDate() + 2);
+  date.setDate(date.getDate() + NEGOCIO.anticipacionDias);
   return formatDateInputValue(date);
 }
 
@@ -260,10 +230,14 @@ function formatCheckoutDateHint(value) {
   });
 }
 
-const CHECKOUT_TIME_MIN = '10:00';
-const CHECKOUT_TIME_MAX = '22:00';
-const CHECKOUT_TIME_LABEL = '10:00 a 22:00';
-const CHECKOUT_HOURS = Array.from({ length: 13 }, (_, index) => String(index + 10).padStart(2, '0'));
+const CHECKOUT_TIME_MIN = `${String(NEGOCIO.horario.apertura).padStart(2, '0')}:00`;
+const CHECKOUT_TIME_MAX = `${String(NEGOCIO.horario.cierre).padStart(2, '0')}:00`;
+const CHECKOUT_TIME_LABEL = `${CHECKOUT_TIME_MIN} a ${CHECKOUT_TIME_MAX}`;
+const CHECKOUT_HOURS = Array.from(
+  { length: NEGOCIO.horario.cierre - NEGOCIO.horario.apertura + 1 },
+  (_, index) => String(index + NEGOCIO.horario.apertura).padStart(2, '0')
+);
+const ANTICIPATION_LABEL = `${NEGOCIO.anticipacionDias * 24} horas`;
 const CHECKOUT_MINUTES = Array.from({ length: 12 }, (_, index) => String(index * 5).padStart(2, '0'));
 
 function formatTimeMeridiem(value) {
@@ -295,19 +269,16 @@ function getCheckoutMinute(value) {
 }
 
 function getCheckoutMinuteOptions(hour) {
-  return hour === '22' ? ['00'] : CHECKOUT_MINUTES;
+  return hour === CHECKOUT_HOURS[CHECKOUT_HOURS.length - 1] ? ['00'] : CHECKOUT_MINUTES;
 }
 
 function isMobileViewport() {
   return typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
 }
 
-/* ── DATA SCIENCE — Payload builder ──────────────────────────
-   Fuente única de verdad para webhook y WhatsApp.
-   - created_at ISO 8601 → Sheets lo parsea como fecha nativa
-   - delivery_date YYYY-MM-DD → filtrable/ordenable
-   - subtotal pre-calculado → SUM() sin fórmulas extra
-   - total_clp número limpio → sin símbolos que rompan fórmulas
+/* ── Datos del mensaje de WhatsApp ───────────────────────────
+   Montos estimados con los precios del catálogo. Si create_order() guardó el
+   pedido, se reemplazan por los que calculó la base.
 ─────────────────────────────────────────────────────────────── */
 function getAtelierPromise(cartItems) {
   const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -328,9 +299,9 @@ function getAtelierPromise(cartItems) {
   };
 }
 
-function buildOrderPayload(cartItems, productSubtotal, formData) {
+function buildOrderPayload(cartItems, productSubtotal, formData, zones) {
   const isDelivery = formData.fulfillment === 'delivery';
-  const deliveryZone = isDelivery ? getDeliveryZone(formData.deliveryZone) : null;
+  const deliveryZone = isDelivery ? getDeliveryZone(zones, formData.deliveryZone) : null;
   const deliveryFee = isDelivery && deliveryZone.feeKnown ? deliveryZone.fee : 0;
   const deliveryFeePending = isDelivery && !deliveryZone.feeKnown;
   const total = productSubtotal + deliveryFee;
@@ -341,7 +312,7 @@ function buildOrderPayload(cartItems, productSubtotal, formData) {
     : '';
 
   return {
-    order_id: `DM-${Date.now()}`,
+    order_id: `DM-WEB-${Date.now().toString(36).toUpperCase()}`,
     created_at: new Date().toISOString(),
     channel: 'whatsapp_web',
     customer: {
@@ -596,12 +567,21 @@ function UpsellCard({ item, onAdd, added, reducedMotion = false }) {
       >
         {item.tag}
       </span>
-      <div
-        className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
-        style={{ background: `${item.accent}15`, border: `1px solid ${item.accent}20` }}
-      >
-        {item.emoji}
-      </div>
+      {item.image ? (
+        <OptimizedImage
+          src={item.image}
+          alt={item.name}
+          sizes="48px"
+          className="w-12 h-12 shrink-0 rounded-xl object-cover"
+        />
+      ) : (
+        <div
+          className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
+          style={{ background: `${item.accent}15`, border: `1px solid ${item.accent}20` }}
+        >
+          {item.emoji}
+        </div>
+      )}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold text-[#3f2128] leading-tight truncate">{item.name}</p>
         <p className="text-[11px] text-[#3f2128]/50 mt-0.5 truncate">{item.subtitle}</p>
@@ -678,14 +658,48 @@ function PrimaryButton({ onClick, disabled, type = 'button', form, children, var
   );
 }
 
+/* ── Confirmación después de enviar ─────────────────────────── */
+function SentOrderPanel({ order }) {
+  return (
+    <div className="flex flex-col items-center py-8 text-center">
+      <CheckCircle2 className="h-16 w-16 text-[#16a34a]" strokeWidth={1.75} />
+      <p className="mt-4 font-serif text-2xl font-bold text-[#3f2128]">
+        {order.saved ? '¡Pedido recibido!' : '¡Ya casi!'}
+      </p>
+      <p className="mt-2 max-w-xs text-sm font-medium leading-relaxed text-[#3f2128]/65">
+        {order.saved
+          ? 'Lo guardamos y te abrimos WhatsApp para enviarlo. Te confirmamos disponibilidad por ahí.'
+          : 'Te abrimos WhatsApp con tu pedido. Envía el mensaje para que lo confirmemos.'}
+      </p>
+      <div className="mt-5 w-full rounded-2xl border border-pink-100 bg-white/80 px-4 py-3 text-sm">
+        <p className="font-semibold text-[#3f2128]/55">Código de pedido</p>
+        <p className="font-bold text-[#3f2128]">{order.orderId}</p>
+        <p className="mt-2 font-semibold text-[#3f2128]/55">{order.feePending ? 'Total parcial (falta delivery)' : 'Total'}</p>
+        <p className="font-serif text-2xl font-bold text-[#be185d]">{formatCLP(order.total)}</p>
+      </div>
+      <a
+        href={order.whatsappUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-5 inline-flex min-h-[52px] w-full items-center justify-center rounded-2xl bg-[#16a34a] px-5 text-sm font-bold text-white shadow-md"
+      >
+        Abrir WhatsApp de nuevo
+      </a>
+      <p className="mt-2 text-xs font-medium text-[#3f2128]/45">Úsalo si WhatsApp no se abrió solo.</p>
+    </div>
+  );
+}
+
 /* ════════════════════════════════════════════════════════════════
    MAIN CartModal
 ════════════════════════════════════════════════════════════════ */
 const CartModal = () => {
   const {
     isCartOpen, closeCart,
-    cartItems, addToCart, updateQuantity, removeItem,
+    cartItems, addToCart, updateQuantity, removeItem, clearCart,
   } = useCart();
+  const { products, zones: catalogZones } = useCatalog();
+  const zones = catalogZones.length ? catalogZones : FALLBACK_ZONES;
   const prefersReducedMotion = useReducedMotion();
 
   const [step, setStep] = useState(1);
@@ -695,7 +709,7 @@ const CartModal = () => {
     date: '',
     time: '',
     fulfillment: 'pickup',
-    deliveryZone: DEFAULT_DELIVERY_ZONE,
+    deliveryZone: '',
     deliveryAddressMode: 'write',
     address: '',
     paymentMethod: 'transfer',
@@ -704,6 +718,11 @@ const CartModal = () => {
   const [errors, setErrors] = useState({});
   const [recentlyAdded, setRecentlyAdded] = useState({});
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [sentOrder, setSentOrder] = useState(null);
+  const selectedZoneValue = formData.deliveryZone || zones[0].value;
+  const knownFees = zones.filter(zone => zone.feeKnown).map(zone => zone.fee);
+  const minDeliveryFeeLabel = knownFees.length ? `Desde ${formatCLP(Math.min(...knownFees))}` : 'Por coordinar';
 
   const reduceCartMotion = useMemo(
     () => Boolean(prefersReducedMotion || isMobileViewport() || isCartOpen),
@@ -720,7 +739,7 @@ const CartModal = () => {
   const orderSummary = useMemo(() => {
     const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
     const productSubtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const deliveryZone = getDeliveryZone(formData.deliveryZone);
+    const deliveryZone = getDeliveryZone(zones, selectedZoneValue);
     const deliveryFee = formData.fulfillment === 'delivery' && deliveryZone.feeKnown ? deliveryZone.fee : 0;
     const deliveryFeePending = formData.fulfillment === 'delivery' && !deliveryZone.feeKnown;
 
@@ -732,7 +751,7 @@ const CartModal = () => {
       deliveryFeePending,
       total: productSubtotal + deliveryFee,
     };
-  }, [cartItems, formData.fulfillment, formData.deliveryZone]);
+  }, [cartItems, formData.fulfillment, selectedZoneValue, zones]);
   const {
     itemCount,
     productSubtotal,
@@ -744,12 +763,17 @@ const CartModal = () => {
 
   const handleClose = () => {
     closeCart();
-    setTimeout(() => setStep(1), 350);
+    setTimeout(() => {
+      setStep(1);
+      setSentOrder(null);
+      setSubmitError('');
+    }, 350);
   };
 
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setErrors(prev => ({ ...prev, [field]: undefined }));
+    setSubmitError('');
   };
 
   const updateCheckoutHour = (hour) => {
@@ -786,7 +810,10 @@ const CartModal = () => {
     }
     if (!formData.date) nextErrors.date = 'Elige una fecha de entrega.';
     if (formData.date && formData.date < minCheckoutDate) {
-      nextErrors.date = 'Elige una fecha con al menos 48 horas de anticipación.';
+      nextErrors.date = `Elige una fecha con al menos ${ANTICIPATION_LABEL} de anticipación.`;
+    }
+    if (formData.date && NEGOCIO.horario.diasCerrados.includes(new Date(`${formData.date}T12:00:00`).getDay())) {
+      nextErrors.date = 'Ese día no hacemos entregas. Elige otro.';
     }
     if (!formData.time) nextErrors.time = 'Indica una hora preferida.';
     if (formData.time && isCheckoutTimeUnavailable(formData.time)) {
@@ -799,7 +826,7 @@ const CartModal = () => {
     ) {
       nextErrors.address = 'Agrega una dirección clara para confirmar delivery.';
     }
-    if (formData.fulfillment === 'delivery' && !formData.deliveryZone) {
+    if (formData.fulfillment === 'delivery' && !selectedZoneValue) {
       nextErrors.deliveryZone = 'Elige un sector para coordinar el delivery.';
     }
     if (!formData.paymentMethod) nextErrors.paymentMethod = 'Elige transferencia o efectivo.';
@@ -808,9 +835,13 @@ const CartModal = () => {
     return Object.keys(nextErrors).length === 0;
   };
 
-  /* ── DATA SCIENCE — Finalizar pedido ───────────────────────
-     trackEvent imprime el JSON en consola para analítica.
-     El try/catch del webhook está listo para activar.
+  /* ── Finalizar pedido ─────────────────────────────────────
+     1. create_order() en Supabase valida y calcula montos con los precios
+        de la base, y guarda el pedido para el admin.
+     2. Se abre WhatsApp con el mensaje armado con esos montos.
+     Si Supabase no responde, el cliente igual puede mandar el pedido por
+     WhatsApp con el total estimado. Si la base rechaza algo (agotado, fecha),
+     se muestra el motivo y no se abre WhatsApp.
   ─────────────────────────────────────────────────────────── */
   const handleWhatsAppOrder = async (e) => {
     e.preventDefault();
@@ -818,66 +849,65 @@ const CartModal = () => {
     if (!validateCheckout()) return;
 
     setIsSubmittingOrder(true);
+    setSubmitError('');
+    // Se abre antes de esperar a la base: si no, el navegador lo bloquea como ventana emergente.
     const whatsappWindow = window.open('', '_blank');
-    const payload = buildOrderPayload(cartItems, productSubtotal, formData);
+    const checkoutData = {
+      ...formData,
+      phone: normalizeChileanPhone(formData.phone),
+      deliveryZone: selectedZoneValue,
+    };
+    const payload = buildOrderPayload(cartItems, productSubtotal, checkoutData, zones);
 
-    // 📊 DATA SCIENCE — Click event del botón de finalizar
     trackEvent('checkout_complete', {
       order_id: payload.order_id,
-      customer_name: payload.customer.name,
       delivery_date: payload.customer.delivery_date,
       preferred_time: payload.customer.preferred_time,
       fulfillment_type: payload.fulfillment.type,
       delivery_zone: payload.fulfillment.delivery_zone,
-      delivery_fee_known: payload.fulfillment.delivery_fee_known,
       payment_method: payload.payment.method,
-      delivery_fee_clp: payload.summary.delivery_fee_clp,
       item_count: payload.summary.item_count,
       total_clp: payload.summary.total_clp,
       items: payload.items.map(i => ({ id: i.id, name: i.name, qty: i.quantity })),
     });
 
+    let savedOrder = null;
     try {
-      const { saveCheckoutOrder } = await import('../lib/orders');
-      const result = await saveCheckoutOrder(payload);
+      const { buildOrderRequest, createOrder } = await import('../lib/orders');
+      const result = await createOrder(buildOrderRequest(cartItems, checkoutData));
 
       trackEvent('checkout_order_store', {
-        order_id: payload.order_id,
+        order_id: result.order?.order_id ?? payload.order_id,
         ok: result.ok,
-        skipped: result.skipped,
-        reason: result.reason,
+        kind: result.kind,
+        reason: result.message,
       });
 
-      if (!result.ok && !result.skipped) {
-        console.warn('[DulceMae] Supabase order save failed:', result.reason);
+      if (result.ok) {
+        savedOrder = result.order;
+      } else if (result.kind === 'rejected') {
+        whatsappWindow?.close();
+        setSubmitError(result.message);
+        setIsSubmittingOrder(false);
+        return;
+      } else {
+        console.warn('[DulceMae] No se pudo guardar el pedido:', result.message);
       }
     } catch (error) {
-      trackEvent('checkout_order_store', {
-        order_id: payload.order_id,
-        ok: false,
-        skipped: false,
-        reason: error.message,
-      });
-      console.warn('[DulceMae] Supabase order save failed:', error.message);
+      console.warn('[DulceMae] No se pudo guardar el pedido:', error.message);
     }
 
-    // 🔗 Webhook — Activa reemplazando WEBHOOK_URL con tu endpoint Make.com / Zapier
-    // Trigger: "Custom Webhook" → "Google Sheets: Add Row" → mapea campos del payload
-    /*
-    try {
-      const WEBHOOK_URL = 'https://hook.eu1.make.com/TU_WEBHOOK_ID_AQUI';
-      const res = await fetch(WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      console.info('[DulceMae] Webhook OK:', payload.order_id);
-    } catch (err) {
-      // Silencioso intencional — loguea para debug, nunca bloquea al cliente
-      console.warn('[DulceMae] Webhook no disponible, pedido continúa:', err.message);
+    if (savedOrder) {
+      payload.order_id = savedOrder.order_id;
+      payload.items = savedOrder.items;
+      payload.summary = {
+        item_count: savedOrder.item_count,
+        subtotal_products_clp: savedOrder.subtotal_products_clp,
+        delivery_fee_clp: savedOrder.delivery_fee_clp,
+        delivery_fee_pending: savedOrder.delivery_fee_pending,
+        total_clp: savedOrder.total_clp,
+      };
     }
-    */
 
     // Keep this message emoji-free: WhatsApp Desktop/Web can render pasted emoji
     // inconsistently from wa.me prefilled text on some Windows setups.
@@ -903,7 +933,7 @@ const CartModal = () => {
         ]
       : [
           `- Modalidad: Retiro`,
-          `- Retiro: coordinar en DulceMae`,
+          `- Retiro: coordinar en ${NEGOCIO.nombre}`,
         ];
 
     const summaryLines = [
@@ -916,7 +946,7 @@ const CartModal = () => {
     ].filter(Boolean);
 
     const finalWhatsAppMessage = [
-      `Hola DulceMae, soy *${payload.customer.name}*.`,
+      `Hola ${NEGOCIO.nombre}, soy *${payload.customer.name}*.`,
       `Me gustaría consultar disponibilidad para este pedido:`,
       ``,
       `*Pedido*`,
@@ -934,7 +964,7 @@ const CartModal = () => {
       payload.customer.comments ? `*Detalle extra*` : null,
       payload.customer.comments ? payload.customer.comments : null,
       ``,
-      `*Total estimado por la web*`,
+      savedOrder ? `*Total*` : `*Total estimado por la web*`,
       ...summaryLines,
       payload.summary.delivery_fee_pending ? `_Se confirma disponibilidad y costo final por WhatsApp._` : null,
       ``,
@@ -943,25 +973,27 @@ const CartModal = () => {
       `¿Me confirman si es posible? Muchas gracias.`,
     ].filter(line => line !== null && line !== undefined).join('\n');
 
-    const whatsappUrl = `https://wa.me/56975562291?text=${encodeURIComponent(finalWhatsAppMessage)}`;
+    const whatsappUrl = enlaceWhatsApp(finalWhatsAppMessage);
+
+    setSentOrder({
+      orderId: payload.order_id,
+      total: payload.summary.total_clp,
+      feePending: payload.summary.delivery_fee_pending,
+      saved: Boolean(savedOrder),
+      whatsappUrl,
+    });
+    clearCart();
+    setIsSubmittingOrder(false);
 
     if (whatsappWindow && !whatsappWindow.closed) {
       whatsappWindow.location.href = whatsappUrl;
     } else {
       window.location.href = whatsappUrl;
     }
-
-    setIsSubmittingOrder(false);
   };
 
   function handleUpsellAdd(upsellItem) {
-    addToCart({
-      id: upsellItem.id,
-      name: upsellItem.name,
-      price: upsellItem.price,
-      image: null,
-      emoji: upsellItem.emoji,
-    });
+    addToCart(upsellItem.product);
     setRecentlyAdded(prev => ({ ...prev, [upsellItem.id]: true }));
     setTimeout(() => setRecentlyAdded(prev => ({ ...prev, [upsellItem.id]: false })), 1800);
 
@@ -970,8 +1002,11 @@ const CartModal = () => {
   }
 
   const visibleUpsells = useMemo(
-    () => UPSELL_ITEMS.filter(u => !cartItems.some(i => i.id === u.id)),
-    [cartItems]
+    () => products
+      .filter(p => p.suggestInCart && p.available && !p.options.length && !cartItems.some(i => i.productId === p.id))
+      .slice(0, 3)
+      .map(toUpsellItem),
+    [products, cartItems]
   );
   const atelierPromise = useMemo(
     () => (cartItems.length > 0 ? getAtelierPromise(cartItems) : null),
@@ -1022,13 +1057,17 @@ const CartModal = () => {
                     exit={{ opacity: 0, scale: 0.8, y: 8 }}
                     transition={{ type: 'spring', stiffness: 300, damping: 18, delay: 0.05 }}
                   >
-                    <SealStamp label={step === 1 ? 'Tu Pedido' : 'Finalizar'} />
+                    <SealStamp label={sentOrder ? 'Listo' : step === 1 ? 'Tu Pedido' : 'Finalizar'} />
                   </motion.div>
                 </AnimatePresence>
 
                 {/* Badge cantidad */}
                 <AnimatePresence mode="wait">
-                  {itemCount > 0 ? (
+                  {sentOrder ? (
+                    <motion.p key="sent" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2 text-sm font-semibold text-[#16a34a]">
+                      Pedido enviado
+                    </motion.p>
+                  ) : itemCount > 0 ? (
                     <motion.p
                       key={itemCount}
                       initial={{ scale: 0.75, opacity: 0, y: 4 }}
@@ -1077,8 +1116,10 @@ const CartModal = () => {
               style={{ scrollbarWidth: 'thin', WebkitOverflowScrolling: 'touch', contain: 'layout paint style' }}
             >
 
+              {sentOrder && <SentOrderPanel order={sentOrder} />}
+
               {/* ── STEP 1: Carrito ── */}
-              {step === 1 && (
+              {!sentOrder && step === 1 && (
                 <motion.div
                   initial={{ opacity: 0, x: -16 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -1169,7 +1210,7 @@ const CartModal = () => {
               )}
 
               {/* ── STEP 2: Checkout ── */}
-              {step === 2 && (
+              {!sentOrder && step === 2 && (
                 <motion.div
                   initial={{ opacity: 0, x: 16 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -1283,7 +1324,7 @@ const CartModal = () => {
                         <div className="grid grid-cols-2 gap-2">
                           {[
                             { value: 'pickup', label: 'Retiro', Icon: Home, detail: 'Sin costo' },
-                            { value: 'delivery', label: 'Delivery', Icon: MapPin, detail: `Desde ${formatCLP(ALERCE_DELIVERY_FEE_CLP)}` },
+                            { value: 'delivery', label: 'Delivery', Icon: MapPin, detail: minDeliveryFeeLabel },
                           ].map(({ value, label, Icon, detail }) => {
                             const active = formData.fulfillment === value;
                             return (
@@ -1319,8 +1360,8 @@ const CartModal = () => {
                             Sector de delivery
                           </label>
                           <div className="grid gap-2">
-                            {DELIVERY_ZONES.map(zone => {
-                              const active = formData.deliveryZone === zone.value;
+                            {zones.map(zone => {
+                              const active = selectedZoneValue === zone.value;
                               return (
                                 <button
                                   key={zone.value}
@@ -1337,7 +1378,7 @@ const CartModal = () => {
                                     <span className="mt-0.5 block text-xs font-semibold text-[#3f2128]/45">{zone.note}</span>
                                   </span>
                                   <span className="shrink-0 rounded-full bg-white/70 px-3 py-1 text-[11px] font-bold text-[#be185d]">
-                                    {zone.detail}
+                                    {zoneDetail(zone)}
                                   </span>
                                 </button>
                               );
@@ -1495,7 +1536,7 @@ const CartModal = () => {
                           </p>
                         ) : (
                           <p className="mt-2 ml-1 text-xs font-semibold leading-snug text-[#3f2128]/38">
-                            Ej. {minCheckoutDateHint} · mínimo 48 horas de anticipación.
+                            Ej. {minCheckoutDateHint} · mínimo {ANTICIPATION_LABEL} de anticipación.
                           </p>
                         )}
                         {errors.date && !checkoutDateUnavailable && (
@@ -1601,7 +1642,15 @@ const CartModal = () => {
                 background: 'rgba(255,255,255,0.92)',
               }}
             >
-              {step === 1 ? (
+              {sentOrder ? (
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="min-h-[52px] w-full rounded-2xl bg-[#3f2128] px-5 text-sm font-bold text-white"
+                >
+                  Cerrar
+                </button>
+              ) : step === 1 ? (
                 <div className="space-y-4">
                   {/* Total premium con barra decorativa animada */}
                   <div className="relative flex justify-between items-center py-3 px-4 rounded-2xl"
@@ -1697,12 +1746,19 @@ const CartModal = () => {
                       onClick={() => cartItems.length > 0 && setStep(2)}
                       disabled={cartItems.length === 0}
                     >
-                      <span>Continuar al pago</span>
+                      <span>Continuar</span>
                       <ArrowRight className="w-4 h-4" />
                     </PrimaryButton>
                   </div>
                 </div>
               ) : (
+                <div className="space-y-3">
+                {submitError && (
+                  <p role="alert" className="flex items-start gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    {submitError}
+                  </p>
+                )}
                 <div className="flex gap-3">
                   <motion.button
                     whileTap={{ scale: 0.95 }}
@@ -1733,6 +1789,7 @@ const CartModal = () => {
                       </svg>
                     </PrimaryButton>
                   </div>
+                </div>
                 </div>
               )}
             </div>

@@ -1,40 +1,48 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, useMotionValue, useTransform, useSpring, AnimatePresence, useInView } from 'framer-motion';
 import { trackEvent } from '../utils/analytics';
 import OptimizedImage from './OptimizedImage';
 import { useTheme } from '../context/ThemeContext';
+import { useCatalog } from '../context/CatalogContext';
+import { NEGOCIO } from '../config/negocio';
 
 /* ══════════════════════════════════════════════════════════════
-   SLIDES — Datos del carrusel
-   `catalogId` corresponde al `id` del producto en Catalog.jsx.
-   Al hacer clic en la card activa → scroll + highlight.
+   SLIDES — Carrusel de la portada
+   Muestra los productos marcados "Destacado" en el admin que tengan foto.
+   Mientras no haya al menos dos, usa estas imágenes de referencia sin
+   precios (los precios reales están en el catálogo).
 ══════════════════════════════════════════════════════════════ */
-const SLIDES = [
-  {
-    id: 0, catalogId: 1,
-    src: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=800&q=85',
-    label: 'Tortas Artesanales', sublabel: 'Desde $25.000',
-    accent: '#ff69b4', accentDark: '#be185d',
-  },
-  {
-    id: 1, catalogId: 2,
-    src: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=800&q=85',
-    label: 'Kuchen Tradicional', sublabel: 'Desde $14.000',
-    accent: '#fb8fbd', accentDark: '#e11d72',
-  },
-  {
-    id: 2, catalogId: 3,
-    src: 'https://images.unsplash.com/photo-1464349095431-e9a21285b5f3?w=800&q=85',
-    label: 'Alfajores Premium', sublabel: 'Desde $12.000',
-    accent: '#e879f9', accentDark: '#c026d3',
-  },
-  {
-    id: 3, catalogId: 6,
-    src: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=800&q=85',
-    label: 'Postres Gourmet', sublabel: 'Desde $22.000',
-    accent: '#f472b6', accentDark: '#db2777',
-  },
+const SLIDE_COLORS = [
+  { accent: '#ff69b4', accentDark: '#be185d' },
+  { accent: '#fb8fbd', accentDark: '#e11d72' },
+  { accent: '#e879f9', accentDark: '#c026d3' },
+  { accent: '#f472b6', accentDark: '#db2777' },
 ];
+
+const FALLBACK_SLIDES = [
+  { label: 'Tortas a pedido', sublabel: 'Para tus celebraciones', src: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=800&q=85' },
+  { label: 'Kuchen del sur', sublabel: 'Hechos a mano', src: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=800&q=85' },
+  { label: 'Alfajores', sublabel: 'Para regalar', src: 'https://images.unsplash.com/photo-1464349095431-e9a21285b5f3?w=800&q=85' },
+  { label: 'Postres', sublabel: 'Para compartir', src: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=800&q=85' },
+].map((slide, i) => ({ ...slide, ...SLIDE_COLORS[i], id: `ref-${i}`, catalogId: null }));
+
+function useHeroSlides() {
+  const { products } = useCatalog();
+
+  return useMemo(() => {
+    const featured = products.filter(product => product.featured && product.image).slice(0, 4);
+    if (featured.length < 2) return FALLBACK_SLIDES;
+
+    return featured.map((product, i) => ({
+      ...SLIDE_COLORS[i],
+      id: product.id,
+      catalogId: product.id,
+      src: product.image,
+      label: product.name,
+      sublabel: `${product.options.length > 1 ? 'Desde ' : ''}$${product.price.toLocaleString('es-CL')}`,
+    }));
+  }, [products]);
+}
 
 const SPRING = { type: 'spring', stiffness: 280, damping: 28, mass: 0.9 };
 const DRAG_THRESHOLD = 55;
@@ -51,6 +59,7 @@ function scrollToCatalogProduct(catalogId) {
   if (!catalogEl) return;
   const top = catalogEl.getBoundingClientRect().top + window.scrollY - 90;
   window.scrollTo({ top, behavior: 'smooth' });
+  if (!catalogId) return;
   // Delay para que el scroll avance antes del highlight
   setTimeout(() => {
     window.dispatchEvent(
@@ -223,6 +232,7 @@ function CarouselCard({ slide, isActive, onActivate, onProductClick }) {
    Sin fondo sólido — transparente sobre BackgroundCanvas.
 ══════════════════════════════════════════════════════════════ */
 export default function Hero() {
+  const slides = useHeroSlides();
   const [active, setActive] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [stackHover, setStackHover] = useState(false);
@@ -261,10 +271,15 @@ export default function Hero() {
   const resetAuto = useCallback(() => {
     clearInterval(autoRef.current);
     autoRef.current = setInterval(
-      () => setActive(prev => (prev + 1) % SLIDES.length),
+      () => setActive(prev => (prev + 1) % slides.length),
       4500
     );
-  }, []);
+  }, [slides.length]);
+
+  // Si cambian los destacados, vuelve al primero.
+  useEffect(() => {
+    setActive(0);
+  }, [slides]);
 
   useEffect(() => {
     resetAuto();
@@ -283,7 +298,7 @@ export default function Hero() {
     trackEvent('carousel_navigate', {
       method: 'control',
       from: active, to: index,
-      slide_label: SLIDES[index].label,
+      slide_label: slides[index].label,
     });
   }
 
@@ -298,13 +313,13 @@ export default function Hero() {
     const delta = dragStart.current - endX;
     if (Math.abs(delta) > DRAG_THRESHOLD) {
       const next = delta > 0
-        ? (active + 1) % SLIDES.length
-        : (active - 1 + SLIDES.length) % SLIDES.length;
+        ? (active + 1) % slides.length
+        : (active - 1 + slides.length) % slides.length;
       goTo(next);
       trackEvent('carousel_navigate', {
         method: 'swipe',
         direction: delta > 0 ? 'left' : 'right',
-        slide_label: SLIDES[next].label,
+        slide_label: slides[next].label,
       });
     }
   }
@@ -328,7 +343,7 @@ export default function Hero() {
       button_label: 'Ver Catálogo',
       variant: 'gradient_primary',
       section: 'hero',
-      active_slide: SLIDES[active].label,
+      active_slide: slides[active].label,
       slide_index: active,
       timestamp: new Date().toISOString(),
     });
@@ -338,8 +353,8 @@ export default function Hero() {
       window.scrollTo({ top, behavior: 'smooth' });
     }
   }
-  const accent = SLIDES[active].accent;
-  const accentDark = SLIDES[active].accentDark;
+  const accent = slides[active].accent;
+  const accentDark = slides[active].accentDark;
 
   return (
     <section
@@ -445,7 +460,7 @@ export default function Hero() {
               >
                 0{active + 1}
               </motion.span>
-              <span className="tracking-widest">/ 0{SLIDES.length}</span>
+              <span className="tracking-widest">/ 0{slides.length}</span>
             </div>
           </motion.div>
 
@@ -465,8 +480,8 @@ export default function Hero() {
               ))}
             </div>
             <div>
-              <p className="text-xs font-bold text-[#3f2128]/65">+200 clientes felices</p>
-              <p className="text-[10px] text-[#3f2128]/40 font-medium">en Puerto Montt · ⭐ 4.9</p>
+              <p className="text-xs font-bold text-[#3f2128]/65">Hecho a mano en {NEGOCIO.sector.split(',')[0]}</p>
+              <p className="text-[10px] text-[#3f2128]/40 font-medium">Retiro o delivery · pedidos con {NEGOCIO.anticipacionDias * 24} h de anticipación</p>
             </div>
           </motion.div>
         </motion.div>
@@ -492,7 +507,7 @@ export default function Hero() {
           >
             {/* Stacked cards — Magnetic Stack Effect */}
             <div className="relative w-full h-full" style={{ perspective: 1100 }}>
-              {SLIDES.map((slide, i) => {
+              {slides.map((slide, i) => {
                 const offset = i - active;
                 if (Math.abs(offset) > 1) return null;
                 /* Stack displacement al hover: la card de fondo se
@@ -544,7 +559,7 @@ export default function Hero() {
             </motion.p>
 
             {/* Dots — bien separados del hint */}
-            <Dots total={SLIDES.length} active={active} onSelect={goTo} accent={accent} />
+            <Dots total={slides.length} active={active} onSelect={goTo} accent={accent} />
 
             {/* Arrows */}
             <div className="flex gap-2.5">
@@ -553,7 +568,7 @@ export default function Hero() {
                   <motion.button
                     key={arrow}
                     aria-label={label}
-                    onClick={() => goTo((active + dir + SLIDES.length) % SLIDES.length)}
+                    onClick={() => goTo((active + dir + slides.length) % slides.length)}
                     className="h-10 w-10 rounded-xl border border-pink-200/80
                                bg-white/65 backdrop-blur-sm text-[#be185d] font-bold
                                hover:bg-pink-50/90 hover:border-pink-300

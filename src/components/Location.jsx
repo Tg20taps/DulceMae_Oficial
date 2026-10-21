@@ -1,18 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, ExternalLink, MapPin, Navigation, Phone, Store } from 'lucide-react';
+import { NEGOCIO } from '../config/negocio';
 
+const { lat, lng } = NEGOCIO.mapa;
 const STORE = {
-  name: 'DulceMae',
-  address: 'Pje. Nueva 1, Casa 117, Alerce, Puerto Montt',
+  name: NEGOCIO.nombre,
+  address: NEGOCIO.direccion,
   region: 'Chile',
-  hours: 'Lun - Sáb · 9:00 - 20:00',
-  openHour: 9,
-  closeHour: 20,
-  closedDays: [0],
-  phone: '+56 9 7556 2291',
-  mapsUrl: 'https://www.google.com/maps/search/?api=1&query=-41.399373%2C-72.906800',
-  embedUrl: 'https://maps.google.com/maps?ll=-41.399373,-72.906800&z=17&t=m&output=embed',
+  hours: NEGOCIO.horario.texto,
+  openHour: NEGOCIO.horario.apertura,
+  closeHour: NEGOCIO.horario.cierre,
+  closedDays: NEGOCIO.horario.diasCerrados,
+  phone: NEGOCIO.telefonoVisible,
+  mapsUrl: `https://www.google.com/maps/search/?api=1&query=${lat}%2C${lng}`,
+  embedUrl: `https://maps.google.com/maps?ll=${lat},${lng}&z=17&t=m&output=embed`,
 };
 
 function LiveStatusBadge() {

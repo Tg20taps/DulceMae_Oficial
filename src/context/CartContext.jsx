@@ -1,7 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const CartContext = createContext(null);
-const CART_KEY = 'dulcemae_cart_v1';
+// v2: los productos vienen de Supabase (ids uuid) y pueden tener tamaño.
+const CART_KEY = 'dulcemae_cart_v2';
+
+export function getCartItemId(productId, optionId) {
+  return optionId ? `${productId}:${optionId}` : String(productId);
+}
 
 function readStoredCart() {
   try {
@@ -11,14 +16,23 @@ function readStoredCart() {
     if (!Array.isArray(parsed)) return [];
 
     return parsed
-      .filter(item => item && item.id != null && item.name && Number(item.price) > 0)
+      .filter(item => item && item.productId && item.name && Number(item.price) > 0)
       .map(item => ({
         ...item,
+        id: getCartItemId(item.productId, item.optionId),
         price: Number(item.price),
-        quantity: Math.max(1, Number(item.quantity) || 1),
+        quantity: Math.min(50, Math.max(1, Number(item.quantity) || 1)),
       }));
   } catch {
     return [];
+  }
+}
+
+function writeStoredCart(items) {
+  try {
+    localStorage.setItem(CART_KEY, JSON.stringify(items));
+  } catch {
+    // Sin almacenamiento el carro igual funciona mientras la pestaña esté abierta.
   }
 }
 
@@ -29,7 +43,7 @@ export function CartProvider({ children }) {
   const [isCartOpen, setIsCartOpen] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem(CART_KEY, JSON.stringify(cartItems));
+    writeStoredCart(cartItems);
   }, [cartItems]);
 
   useEffect(() => {
@@ -40,12 +54,26 @@ export function CartProvider({ children }) {
     return () => window.removeEventListener('storage', syncCart);
   }, []);
 
-  const addToCart = useCallback((product) => {
+  // `option` es el tamaño elegido, si el producto tiene tamaños.
+  const addToCart = useCallback((product, option = null) => {
+    const id = getCartItemId(product.id, option?.id);
+
     setCartItems((prev) => {
-      const existing = prev.find(item => item.id === product.id);
-      return existing
-        ? prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item)
-        : [...prev, { ...product, quantity: 1 }];
+      const existing = prev.find(item => item.id === id);
+      if (existing) {
+        return prev.map(item => item.id === id ? { ...item, quantity: Math.min(50, item.quantity + 1) } : item);
+      }
+      return [...prev, {
+        id,
+        productId: product.id,
+        optionId: option?.id ?? null,
+        optionLabel: option?.label ?? null,
+        name: option ? `${product.name} (${option.label})` : product.name,
+        price: option ? option.price : product.price,
+        image: product.image,
+        category: product.category,
+        quantity: 1,
+      }];
     });
 
     window.dispatchEvent(new CustomEvent('itemAdded'));
@@ -60,8 +88,37 @@ export function CartProvider({ children }) {
       removeItem(id);
       return;
     }
-    setCartItems(prev => prev.map(item => item.id === id ? { ...item, quantity: qty } : item));
+    setCartItems(prev => prev.map(item => item.id === id ? { ...item, quantity: Math.min(50, qty) } : item));
   }, [removeItem]);
+
+  // Con el catálogo cargado: saca lo que ya no se vende y actualiza nombres,
+  // fotos y precios guardados de una visita anterior.
+  const syncWithCatalog = useCallback((products) => {
+    const byId = new Map(products.map(product => [product.id, product]));
+
+    setCartItems(prev => {
+      const next = [];
+      for (const item of prev) {
+        const product = byId.get(item.productId);
+        if (!product || !product.available) continue;
+        const option = item.optionId ? product.options.find(o => o.id === item.optionId) : null;
+        if (product.options.length && !option) continue;
+        if (!product.options.length && item.optionId) continue;
+        next.push({
+          ...item,
+          optionLabel: option?.label ?? null,
+          name: option ? `${product.name} (${option.label})` : product.name,
+          price: option ? option.price : product.price,
+          image: product.image,
+          category: product.category,
+        });
+      }
+      const changed = next.length !== prev.length || next.some((item, i) => (
+        item.price !== prev[i].price || item.name !== prev[i].name || item.image !== prev[i].image
+      ));
+      return changed ? next : prev;
+    });
+  }, []);
 
   const clearCart = useCallback(() => setCartItems([]), []);
   const openCart = useCallback(() => setIsCartOpen(true), []);
@@ -84,6 +141,7 @@ export function CartProvider({ children }) {
     addToCart,
     removeItem,
     updateQuantity,
+    syncWithCatalog,
     clearCart,
     cartCount,
     itemCount: cartCount,
@@ -96,6 +154,7 @@ export function CartProvider({ children }) {
     addToCart,
     removeItem,
     updateQuantity,
+    syncWithCatalog,
     clearCart,
     cartCount,
     cartTotal,

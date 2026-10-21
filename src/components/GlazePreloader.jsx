@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect } from 'react';
+import { motion } from 'framer-motion';
 
 /* ══════════════════════════════════════════════════════════════
    GlazePreloader — "El Telón de Azúcar"
@@ -35,7 +35,7 @@ const CURTAIN_COLORS = [
   { from: '#fff1f5', to: '#f9a8d4' },
 ];
 
-function GlazeCurtain({ index, onDone }) {
+function GlazeCurtain({ index }) {
   const delay  = index * 0.055;
   const width  = `${100 / 5}%`;
   const left   = `${(index / 5) * 100}%`;

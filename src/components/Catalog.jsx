@@ -1,243 +1,215 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Instagram, MessageCircle, Plus, RefreshCw, X } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { Plus } from 'lucide-react';
+import { useCatalog } from '../context/CatalogContext';
 import { trackEvent } from '../utils/analytics';
 import { useTheme, CATEGORY_THEME_MAP, resolveProductTheme } from '../context/ThemeContext';
-import OptimizedImage from './OptimizedImage';
+import { NEGOCIO, enlaceWhatsApp } from '../config/negocio';
+import ProductImage from './ProductImage';
 
-const MotionImage = motion.create(OptimizedImage);
+const fmt = (n) => `$${Number(n || 0).toLocaleString('es-CL')}`;
 
-const categories = ['Todos', 'Tortas', 'Kuchen', 'Alfajores', 'Postres'];
-
-const products = [
-  {
-    id: 1,
-    name: 'Torta de Chocolate y Frambuesa',
-    category: 'Tortas',
-    price: 25000,
-    image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&q=80&w=600',
-    description: 'Bizcocho húmedo de cacao con relleno de ganache y mermelada artesanal de frambuesa.',
-  },
-  {
-    id: 2,
-    name: 'Kuchen de Nuez',
-    category: 'Kuchen',
-    price: 15000,
-    image: 'https://images.unsplash.com/photo-1519869325930-281384150729?auto=format&fit=crop&q=80&w=600',
-    description: 'Tradicional receta del sur, masa suave con abundante relleno de nueces y manjar.',
-  },
-  {
-    id: 3,
-    name: 'Caja de Alfajores Premium',
-    category: 'Alfajores',
-    price: 12000,
-    image: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?auto=format&fit=crop&q=80&w=600',
-    description: '6 alfajores de maicena artesanales bañados en chocolate belga semiamargo.',
-  },
-  {
-    id: 4,
-    name: 'Torta Red Velvet',
-    category: 'Tortas',
-    price: 28000,
-    image: 'https://images.unsplash.com/photo-1616541823729-00fe0aacd32c?auto=format&fit=crop&q=80&w=600',
-    description: 'Clásica torta aterciopelada con nuestro frosting especial de queso crema.',
-  },
-  {
-    id: 5,
-    name: 'Kuchen de Manzana',
-    category: 'Kuchen',
-    price: 14000,
-    image: 'https://images.unsplash.com/photo-1568430462989-44163eb17ab2?auto=format&fit=crop&q=80&w=600',
-    description: 'Manzanas caramelizadas con canela sobre masa crujiente y migas dulces.',
-  },
-  {
-    id: 6,
-    name: 'Cheesecake de Frutos Rojos',
-    category: 'Postres',
-    price: 22000,
-    image: 'https://images.unsplash.com/photo-1533134242443-d4fd215305ad?auto=format&fit=crop&q=80&w=600',
-    description: 'Suave y cremoso sobre base de galleta, coronado con coulis de frutos del bosque.',
-  },
-];
-
-/* ── ProductCard — 3D Tilt + Magnetic Text + Zoom ───────────── */
-const CATEGORY_ACCENTS = {
-  Tortas: '#be185d',
-  Kuchen: '#f9739c',
-  Alfajores: '#db2777',
-  Postres: '#c026d3',
-};
-
-const PRODUCT_NOTES = [
-  { match: 'chocolate', notes: ['Cacao intenso', 'Ganache sedosa', 'Frambuesa real'] },
-  { match: 'red velvet', notes: ['Miga aterciopelada', 'Frosting fresco', 'Color ceremonial'] },
-  { match: 'nuez', notes: ['Nuez tostada', 'Manjar lento', 'Masa surena'] },
-  { match: 'manzana', notes: ['Canela tibia', 'Manzana dorada', 'Migas crujientes'] },
-  { match: 'alfajor', notes: ['Maicena fina', 'Bano brillante', 'Manjar artesanal'] },
-  { match: 'cheesecake', notes: ['Queso crema', 'Coulis rojo', 'Base crocante'] },
-];
-
-function getProductNotes(product) {
-  const name = product.name.toLowerCase();
-  return PRODUCT_NOTES.find(item => name.includes(item.match))?.notes
-    ?? ['Hecho a mano', '48h de oficio', 'Ingredientes selectos'];
+function priceLabel(product) {
+  return product.options.length > 1 ? `Desde ${fmt(product.price)}` : fmt(product.price);
 }
 
-function ProductCard({ product, index, onAdd, onHoverStart, onHoverEnd, highlighted = false }) {
-  /* Motion values para el tilt */
- 
-
-  /* Motion values para el texto magnético */
- 
-
-  const [hov, setHov] = useState(false);
-
-  function handleMouseLeave() {
-    setHov(false);
-    onHoverEnd?.();
-  }
-
-  const fmt = (n) => `$${n.toLocaleString('es-CL')}`;
-  const accent = CATEGORY_ACCENTS[product.category] ?? '#be185d';
-  const notes = getProductNotes(product);
+function ProductCard({ product, index, onOpen, onAdd, highlighted, onHoverStart, onHoverEnd }) {
+  const hasOptions = product.options.length > 0;
 
   return (
-    <motion.div
+    <motion.article
       data-product-id={product.id}
-      layout
-      key={product.id}
-      initial={{ opacity: 0, y: 50 }}
+      initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '0px 0px 20% 0px' }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.5, delay: index * 0.08 }}
-      onMouseEnter={() => { setHov(true); onHoverStart?.(); }}
-      onMouseLeave={handleMouseLeave}
-      style={{
-        scrollMarginTop: 112,
-      }}
-      className="group flex flex-col rounded-3xl overflow-hidden"
+      viewport={{ once: true, margin: '0px 0px 15% 0px' }}
+      transition={{ duration: 0.4, delay: Math.min(index, 6) * 0.04 }}
+      onMouseEnter={onHoverStart}
+      onMouseLeave={onHoverEnd}
+      style={{ scrollMarginTop: 112 }}
+      className={`group flex flex-col overflow-hidden rounded-3xl border bg-white/85 shadow-[0_6px_24px_rgba(190,24,93,0.08)] backdrop-blur transition-shadow hover:shadow-[0_18px_48px_rgba(190,24,93,0.16)] ${
+        highlighted ? 'border-[#be185d] ring-4 ring-[#be185d]/15' : 'border-white/60'
+      }`}
     >
-      {/* Card interior */}
-      <div
-        className="relative flex flex-col h-full rounded-3xl overflow-hidden"
-        style={{
-          background: 'rgba(255,255,255,0.72)',
-          backdropFilter: 'blur(16px)',
-          border: highlighted ? `2px solid ${accent}` : '1px solid rgba(255,255,255,0.40)',
-          boxShadow: highlighted
-            ? `0 0 0 8px ${accent}18, 0 26px 72px ${accent}33`
-            : hov
-            ? '0 20px 60px rgba(190,24,93,0.18), 0 1px 0 rgba(255,255,255,0.6) inset'
-            : '0 4px 24px rgba(190,24,93,0.07), 0 1px 0 rgba(255,255,255,0.5) inset',
-          transition: 'box-shadow 0.35s ease, border-color 0.35s ease',
-        }}
+      <button
+        type="button"
+        onClick={() => onOpen(product)}
+        className="relative block aspect-square w-full overflow-hidden"
+        aria-label={`Ver ${product.name}`}
       >
-        <motion.div
-          aria-hidden="true"
-          className="absolute z-0 rounded-full pointer-events-none blur-2xl"
-          animate={{ opacity: hov ? 0.75 : 0 }}
-          transition={{ duration: 0.3 }}
-          style={{
-            left: '50%',
-            top: '28%',
-            width: 190,
-            height: 190,
-            x: '-50%',
-            y: '-50%',
-            background: `radial-gradient(circle, ${accent}33 0%, transparent 70%)`,
-          }}
+        <ProductImage
+          product={product}
+          sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
+          loading={index < 4 ? 'eager' : 'lazy'}
+          fetchpriority={index < 2 ? 'high' : 'auto'}
+          className="transition-transform duration-500 group-hover:scale-105"
         />
-        {/* Image con zoom */}
-        <div className="relative z-10 w-full h-72 overflow-hidden">
-          <MotionImage
-            src={product.image}
-            alt={product.name}
-            sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
-            loading={index < 2 ? 'eager' : 'lazy'}
-            fetchpriority={index < 2 ? 'high' : 'auto'}
-            animate={{ scale: hov ? 1.10 : 1 }}
-            transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
-            className="w-full h-full object-cover"
-            style={{ willChange: 'transform' }}
-          />
-          {/* Overlay gradiente al hover */}
-          <motion.div
-            animate={{ opacity: hov ? 1 : 0 }}
-            transition={{ duration: 0.3 }}
-            className="absolute inset-0 pointer-events-none"
-            style={{ background: 'linear-gradient(160deg, rgba(190,24,93,0.12) 0%, transparent 60%)' }}
-          />
-          <div className="absolute top-4 left-4 bg-white/80 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold text-[#be185d] uppercase tracking-wider shadow-sm">
-            {product.category}
-          </div>
-          <AnimatePresence>
-            {hov && (
-              <motion.div
-                initial={{ opacity: 0, y: 18 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 12 }}
-                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-                className="absolute left-4 right-4 bottom-4 flex flex-wrap gap-2"
-              >
-                {notes.map((note, noteIndex) => (
-                  <motion.span
-                    key={note}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: noteIndex * 0.04 }}
-                    className="rounded-full border border-white/40 bg-white/80 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.13em] text-[#3f2128]/75 shadow-sm backdrop-blur-md"
-                  >
-                    {note}
-                  </motion.span>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        {!product.available && (
+          <span className="absolute inset-0 flex items-center justify-center bg-white/55 backdrop-blur-[2px]">
+            <span className="rounded-full bg-[#3f2128] px-3 py-1 text-xs font-bold uppercase tracking-wider text-white">Agotado</span>
+          </span>
+        )}
+      </button>
 
-        {/* Content */}
-        <div className="relative z-10 flex flex-col flex-1 p-7 bg-gradient-to-b from-white/40 to-rose-50/50">
-          {/* Título magnético */}
-          <motion.h3
-            className="font-serif text-2xl font-bold text-[#3f2128] mb-2 leading-tight"
-          >
-            {product.name}
-          </motion.h3>
+      <div className="flex flex-1 flex-col p-3 sm:p-5">
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#be185d]/70 sm:text-xs">{product.category}</p>
+        <button type="button" onClick={() => onOpen(product)} className="mt-1 text-left">
+          <h3 className="line-clamp-2 font-serif text-base font-bold leading-snug text-[#3f2128] sm:text-xl">{product.name}</h3>
+        </button>
+        {product.description && (
+          <p className="mt-1 line-clamp-2 hidden text-sm text-[#3f2128]/60 sm:block">{product.description}</p>
+        )}
+        <p className="mt-2 text-sm font-bold text-[#3f2128] sm:text-lg">{priceLabel(product)}</p>
 
-          <p className="text-gray-600 text-sm mb-6 flex-1 line-clamp-3">
-            {product.description}
-          </p>
-
-          <div className="flex items-center justify-between mt-auto pt-4 border-t border-rose-100/50">
-            {/* Precio magnético */}
-            <motion.span
-              className="font-bold text-xl text-[#3f2128]"
-            >
-              {fmt(product.price)}
-            </motion.span>
-
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => onAdd(product)}
+        <div className="mt-auto pt-3">
+          {product.available ? (
+            <button
+              type="button"
+              onClick={() => (hasOptions ? onOpen(product) : onAdd(product))}
               data-add-to-cart={product.id}
-              className="w-12 h-12 flex items-center justify-center bg-[#be185d] text-white rounded-full hover:bg-[#9f1239] transition-colors shadow-lg shadow-[#be185d]/40"
-              title="Añadir al carrito"
+              className="flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-2xl bg-[#be185d] px-3 text-sm font-bold text-white shadow-md shadow-[#be185d]/25 transition-colors hover:bg-[#9f1239]"
             >
-              <Plus className="w-6 h-6" />
-            </motion.button>
-          </div>
+              {!hasOptions && <Plus className="h-4 w-4" strokeWidth={3} />}
+              {hasOptions ? 'Elegir tamaño' : 'Agregar'}
+            </button>
+          ) : (
+            <span className="flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-[#3f2128]/8 px-3 text-sm font-bold text-[#3f2128]/50">
+              Agotado por ahora
+            </span>
+          )}
         </div>
       </div>
-    </motion.div>
+    </motion.article>
+  );
+}
+
+// Ficha en hoja inferior: descripción completa y, si tiene, la elección de tamaño.
+function ProductSheet({ product, onClose, onAdd }) {
+  const hasOptions = product.options.length > 0;
+
+  useEffect(() => {
+    const onKey = (event) => event.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[240] flex items-end justify-center bg-[#2b1620]/45 sm:items-center" onClick={onClose}>
+      <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-label={product.name}
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 40, opacity: 0 }}
+        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+        onClick={(event) => event.stopPropagation()}
+        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-[2rem] bg-white shadow-2xl sm:rounded-[2rem]"
+      >
+        <div className="relative aspect-[4/3] w-full overflow-hidden">
+          <ProductImage product={product} sizes="(min-width: 640px) 512px, 100vw" loading="eager" />
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-[#3f2128] shadow-md"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="p-5 pb-8">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#be185d]/70">{product.category}</p>
+          <h3 className="mt-1 font-serif text-2xl font-bold text-[#3f2128]">{product.name}</h3>
+          {product.description && (
+            <p className="mt-2 text-sm leading-relaxed text-[#3f2128]/70">{product.description}</p>
+          )}
+
+          {!product.available ? (
+            <p className="mt-5 rounded-2xl bg-[#3f2128]/6 px-4 py-3 text-center text-sm font-bold text-[#3f2128]/60">
+              Agotado por ahora. Escríbenos si lo necesitas para más adelante.
+            </p>
+          ) : hasOptions ? (
+            <div className="mt-5">
+              <p className="mb-2 text-sm font-bold text-[#3f2128]">Elige el tamaño</p>
+              <div className="grid gap-2">
+                {product.options.map(option => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => onAdd(product, option)}
+                    className="flex min-h-[56px] items-center justify-between gap-3 rounded-2xl border-2 border-pink-100 bg-[#fff7fb] px-4 py-3 text-left transition hover:border-[#be185d]/50"
+                  >
+                    <span className="font-bold text-[#3f2128]">{option.label}</span>
+                    <span className="flex items-center gap-2 font-bold text-[#be185d]">
+                      {fmt(option.price)}
+                      <Plus className="h-5 w-5" strokeWidth={3} />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onAdd(product)}
+              className="mt-5 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-[#be185d] px-4 text-base font-bold text-white shadow-lg shadow-[#be185d]/25"
+            >
+              <Plus className="h-5 w-5" strokeWidth={3} />
+              Agregar · {fmt(product.price)}
+            </button>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function CatalogMessage({ title, detail, children }) {
+  return (
+    <div className="mx-auto max-w-lg rounded-3xl border border-white/60 bg-white/80 p-6 text-center shadow-[0_10px_40px_rgba(190,24,93,0.10)] backdrop-blur">
+      <h3 className="font-serif text-2xl font-bold text-[#3f2128]">{title}</h3>
+      <p className="mt-2 text-sm leading-relaxed text-[#3f2128]/65">{detail}</p>
+      <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">{children}</div>
+    </div>
+  );
+}
+
+function WhatsAppButton({ text }) {
+  return (
+    <a
+      href={enlaceWhatsApp(text)}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl bg-[#16a34a] px-5 text-sm font-bold text-white shadow-md"
+    >
+      <MessageCircle className="h-5 w-5" />
+      Pedir por WhatsApp
+    </a>
+  );
+}
+
+function CatalogSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-4" aria-label="Cargando catálogo">
+      {Array.from({ length: 4 }, (_, i) => (
+        <div key={i} className="overflow-hidden rounded-3xl border border-white/60 bg-white/70">
+          <div className="aspect-square animate-pulse bg-pink-100/70" />
+          <div className="space-y-2 p-4">
+            <div className="h-3 w-1/3 animate-pulse rounded bg-pink-100" />
+            <div className="h-4 w-3/4 animate-pulse rounded bg-pink-100" />
+            <div className="h-10 animate-pulse rounded-2xl bg-pink-100" />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
 const Catalog = () => {
+  const { status, products, categories, reload } = useCatalog();
   const [activeCategory, setActiveCategory] = useState('Todos');
   const [highlightedProductId, setHighlightedProductId] = useState(null);
+  const [openProduct, setOpenProduct] = useState(null);
   const { addToCart, openCart } = useCart();
   const { setTheme } = useTheme();
 
@@ -245,27 +217,40 @@ const Catalog = () => {
     ? products
     : products.filter(p => p.category === activeCategory);
 
+  useEffect(() => {
+    if (activeCategory !== 'Todos' && !categories.includes(activeCategory)) setActiveCategory('Todos');
+  }, [activeCategory, categories]);
+
   function handleCategoryChange(category) {
     setActiveCategory(category);
-    // Actualiza tema atmosférico según categoría
     setTheme(CATEGORY_THEME_MAP[category] ?? 'default');
-    trackEvent('catalog_filter', { category, result_count: category === 'Todos' ? products.length : products.filter(p => p.category === category).length });
+    trackEvent('catalog_filter', {
+      category,
+      result_count: category === 'Todos' ? products.length : products.filter(p => p.category === category).length,
+    });
   }
 
-  function handleAddToCart(product) {
-    addToCart(product);
+  function handleOpenProduct(product) {
+    setOpenProduct(product);
+    trackEvent('product_open', { product_id: product.id, product_name: product.name });
+  }
+
+  function handleAddToCart(product, option = null) {
+    addToCart(product, option);
+    setOpenProduct(null);
     openCart();
     trackEvent('add_to_cart', {
       product_id: product.id,
       product_name: product.name,
+      option_label: option?.label ?? null,
       category: product.category,
-      price_clp: product.price,
+      price_clp: option ? option.price : product.price,
     });
   }
 
   useEffect(() => {
     function handleHighlightProduct(event) {
-      const productId = Number(event.detail?.productId);
+      const productId = event.detail?.productId;
       const product = products.find(item => item.id === productId);
       if (!product) return;
 
@@ -286,58 +271,106 @@ const Catalog = () => {
 
     window.addEventListener('highlightProduct', handleHighlightProduct);
     return () => window.removeEventListener('highlightProduct', handleHighlightProduct);
-  }, [setTheme]);
+  }, [products, setTheme]);
 
-  return (
-    <section id="catalogo" className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto bg-dots relative">
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.6 }}
-        className="text-center mb-16"
+  let content;
+  if (status === 'loading' && !products.length) {
+    content = <CatalogSkeleton />;
+  } else if (status === 'error' && !products.length) {
+    content = (
+      <CatalogMessage
+        title="No pudimos cargar el catálogo"
+        detail="Puede ser la conexión. Vuelve a intentar o haz tu pedido directo por WhatsApp."
       >
-        <h2 className="font-serif text-5xl md:text-6xl font-bold text-[#3f2128] mb-4 drop-shadow-sm">
-          Nuestras Delicias
-        </h2>
-        <p className="text-[#3f2128]/55 text-base max-w-md mx-auto leading-relaxed font-medium mb-6">
-          Cada pieza elaborada a mano, con ingredientes seleccionados y mucho amor.
-        </p>
-        <div className="w-24 h-1 bg-gradient-to-r from-[#be185d] to-[#f472b6] mx-auto rounded-full" />
-      </motion.div>
+        <button
+          type="button"
+          onClick={reload}
+          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-pink-200 bg-white px-5 text-sm font-bold text-[#3f2128]"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Reintentar
+        </button>
+        <WhatsAppButton text={`Hola ${NEGOCIO.nombre}, quiero hacer un pedido.`} />
+      </CatalogMessage>
+    );
+  } else if (!products.length) {
+    content = (
+      <CatalogMessage
+        title="Muy pronto, nuestro catálogo"
+        detail="Estamos subiendo nuestros productos. Mientras tanto, mira lo que hacemos en Instagram y pídenos por WhatsApp."
+      >
+        <a
+          href={NEGOCIO.instagram}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-pink-200 bg-white px-5 text-sm font-bold text-[#3f2128]"
+        >
+          <Instagram className="h-5 w-5 text-[#be185d]" />
+          {NEGOCIO.instagramUsuario}
+        </a>
+        <WhatsAppButton text={`Hola ${NEGOCIO.nombre}, quiero hacer un pedido.`} />
+      </CatalogMessage>
+    );
+  } else {
+    content = (
+      <>
+        {categories.length > 1 && (
+          <div className="-mx-4 mb-6 overflow-x-auto px-4 pb-2 sm:mx-0 sm:mb-10 sm:px-0">
+            <div className="flex w-max gap-2 sm:mx-auto sm:flex-wrap sm:justify-center sm:gap-3">
+              {['Todos', ...categories].map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => handleCategoryChange(category)}
+                  className={`min-h-[44px] whitespace-nowrap rounded-full px-5 text-sm font-semibold transition-all ${
+                    activeCategory === category
+                      ? 'bg-[#be185d] text-white shadow-lg shadow-[#be185d]/30'
+                      : 'bg-white/80 text-[#3f2128] hover:bg-rose-50'
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
-      {/* Categories */}
-      <div className="flex flex-wrap justify-center gap-4 mb-14">
-        {categories.map((category) => (
-          <button
-            key={category}
-            onClick={() => handleCategoryChange(category)}
-            className={`px-6 py-2.5 rounded-full font-medium transition-all duration-300 border border-transparent ${activeCategory === category
-              ? 'bg-[#be185d] text-white shadow-lg shadow-[#be185d]/30'
-              : 'bg-white/70 text-[#3f2128] hover:bg-rose-50 hover:border-rose-200 backdrop-blur-sm'
-              }`}
-          >
-            {category}
-          </button>
-        ))}
-      </div>
-
-      {/* Products Grid */}
-      <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-        <AnimatePresence>
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
           {filteredProducts.map((product, index) => (
             <ProductCard
               key={product.id}
               product={product}
               index={index}
+              onOpen={handleOpenProduct}
               onAdd={handleAddToCart}
               highlighted={highlightedProductId === product.id}
               onHoverStart={() => setTheme(resolveProductTheme(product.name))}
               onHoverEnd={() => setTheme(CATEGORY_THEME_MAP[activeCategory] ?? 'default')}
             />
           ))}
-        </AnimatePresence>
-      </motion.div>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <section className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
+      <div className="mb-8 text-center sm:mb-12">
+        <h2 className="mb-3 font-serif text-4xl font-bold text-[#3f2128] drop-shadow-sm md:text-6xl">
+          Nuestro catálogo
+        </h2>
+        <p className="mx-auto max-w-md text-sm font-medium leading-relaxed text-[#3f2128]/60 sm:text-base">
+          Elige, agrega al carro y envía tu pedido por WhatsApp. Pedidos con {NEGOCIO.anticipacionDias * 24} horas de anticipación.
+        </p>
+      </div>
+
+      {content}
+
+      <AnimatePresence>
+        {openProduct && (
+          <ProductSheet product={openProduct} onClose={() => setOpenProduct(null)} onAdd={handleAddToCart} />
+        )}
+      </AnimatePresence>
     </section>
   );
 };

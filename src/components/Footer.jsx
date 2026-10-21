@@ -1,12 +1,13 @@
 import React, { useRef, useState } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { Cake, Heart, Instagram, MessageCircle, Music2, Sparkles } from 'lucide-react';
+import { NEGOCIO, enlaceWhatsApp } from '../config/negocio';
 import { useTheme } from '../context/ThemeContext';
 
 const SOCIALS = [
   {
     label: 'Instagram',
-    href: 'https://www.instagram.com/dulcemaeoficial/',
+    href: NEGOCIO.instagram,
     Icon: Instagram,
     color: '#dd2a7b',
     glow: 'rgba(221,42,123,0.36)',
@@ -16,7 +17,7 @@ const SOCIALS = [
   },
   {
     label: 'TikTok',
-    href: 'https://www.tiktok.com/@claudia.andrea2',
+    href: NEGOCIO.tiktok,
     Icon: Music2,
     color: '#ff0050',
     glow: 'rgba(255,0,80,0.34)',
@@ -26,7 +27,7 @@ const SOCIALS = [
   },
   {
     label: 'WhatsApp',
-    href: 'https://wa.me/56975562291',
+    href: enlaceWhatsApp(),
     Icon: MessageCircle,
     color: '#16a34a',
     glow: 'rgba(22,163,74,0.34)',
@@ -86,7 +87,7 @@ function CraftMotif() {
 
 function SocialLink({ social }) {
   const [hovered, setHovered] = useState(false);
-  const { label, href, Icon, color, glow, hoverBg, badgeBg, softBg } = social;
+  const { label, href, Icon, glow, hoverBg, badgeBg, softBg } = social;
 
   return (
     <motion.a
