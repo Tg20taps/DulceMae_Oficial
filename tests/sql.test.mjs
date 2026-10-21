@@ -149,6 +149,12 @@ test('catálogo, pedidos calculados en la base y costos', async () => {
   await admin('delete from recipes where id = $1', [receta]);
   await admin('delete from ingredients where id = $1', [harina]);
 
+  // Fotos de la página: todos las ven, sólo el admin las cambia.
+  assert.equal((await anon('select count(*)::int n from site_photos'))[0].n, 3);
+  await fails(anon(`update site_photos set caption = 'x'`), /permission/, 'anon no cambia fotos de la página');
+  await admin(`update site_photos set image_url = 'https://ejemplo.cl/a.webp', image_path = '2026-10/a.webp' where slot = 'nosotros_1'`);
+  assert.equal((await anon(`select image_url from site_photos where slot = 'nosotros_1'`))[0].image_url, 'https://ejemplo.cl/a.webp');
+
   const [settings] = await admin(`select value from app_settings where key = 'costos'`);
   assert.equal(settings.value.valor_hora_clp, 3500);
   assert.equal((await db.query(`select count(*)::int n from storage.buckets where id = 'productos' and public`)).rows[0].n, 1);

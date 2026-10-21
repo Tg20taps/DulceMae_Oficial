@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Camera, ImageOff, Plus, RefreshCw, Store, Trash2 } from 'lucide-react';
-import { adminRest, adminRpc, deleteProductImage, uploadProductImage } from '../../lib/adminApi';
-import { comprimirFoto } from '../../lib/imagenes';
+import { ArrowDown, ArrowUp, Camera, HelpCircle, ImageOff, Plus, RefreshCw, Store, Trash2 } from 'lucide-react';
+import { adminRest, adminRpc, deleteProductImage, uploadProductPhoto } from '../../lib/adminApi';
+import { urlMiniatura } from '../../lib/imagenes';
+import AdminPaginaFotos from './AdminPaginaFotos';
+import EncuadreFoto from './EncuadreFoto';
+import GuiaFotos from './GuiaFotos';
 import {
   ConfirmDialog,
   EmptyState,
@@ -106,10 +109,20 @@ function validateDraft(draft) {
   return '';
 }
 
-function Thumbnail({ url, name, className = 'h-16 w-16' }) {
-  const [failedUrl, setFailedUrl] = useState(null);
-  return url && failedUrl !== url ? (
-    <img src={url} alt={name} loading="lazy" onError={() => setFailedUrl(url)} className={`${className} shrink-0 rounded-2xl object-cover`} />
+// Usa la miniatura liviana; si no existe (fotos antiguas), la foto completa;
+// si tampoco carga, un recuadro vacío.
+export function Thumbnail({ url, name, className = 'h-16 w-16' }) {
+  const [failed, setFailed] = useState({ url: null, step: 0 });
+  const step = failed.url === url ? failed.step : 0;
+  const src = step === 0 ? urlMiniatura(url) : url;
+  return url && step < 2 ? (
+    <img
+      src={src}
+      alt={name}
+      loading="lazy"
+      onError={() => setFailed({ url, step: src === url ? 2 : step + 1 })}
+      className={`${className} shrink-0 rounded-2xl object-cover`}
+    />
   ) : (
     <span className={`${className} flex shrink-0 items-center justify-center rounded-2xl bg-[#fde7f1]`}>
       <ImageOff className="h-5 w-5 text-[#be185d]/40" />
@@ -195,7 +208,8 @@ function ProductRow({ product, onEdit, onToggle, onMove, busy, isFirst, isLast }
 function ProductEditor({ initial, categories, onClose, onSave, onDelete, saving }) {
   const [draft, setDraft] = useState(initial);
   const [error, setError] = useState('');
-  const [preparingPhoto, setPreparingPhoto] = useState(false);
+  const [pendingFile, setPendingFile] = useState(null);
+  const [showGuide, setShowGuide] = useState(false);
   const [customCategory, setCustomCategory] = useState(
     Boolean(initial.category) && !categories.includes(initial.category)
   );
@@ -221,19 +235,12 @@ function ProductEditor({ initial, categories, onClose, onSave, onDelete, saving 
     setError('');
   };
 
-  async function handleFile(event) {
+  function handleFile(event) {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    setPreparingPhoto(true);
     setError('');
-    try {
-      const photo = await comprimirFoto(file);
-      setDraft(prev => ({ ...prev, newPhoto: photo, removePhoto: false }));
-    } catch (photoError) {
-      setError(photoError.message);
-    }
-    setPreparingPhoto(false);
+    setPendingFile(file);
   }
 
   function handleSave() {
@@ -254,7 +261,7 @@ function ProductEditor({ initial, categories, onClose, onSave, onDelete, saving 
       footer={(
         <div className="space-y-2">
           {error && <p role="alert" className="rounded-2xl bg-red-50 px-4 py-2 text-sm font-bold text-red-600">{error}</p>}
-          <PrimaryButton onClick={handleSave} disabled={saving || preparingPhoto} className="w-full">
+          <PrimaryButton onClick={handleSave} disabled={saving} className="w-full">
             {saving ? <RefreshCw className="h-5 w-5 animate-spin" /> : null}
             {saving ? 'Guardando...' : 'Guardar'}
           </PrimaryButton>
@@ -263,7 +270,17 @@ function ProductEditor({ initial, categories, onClose, onSave, onDelete, saving 
     >
       <div className="space-y-6">
         <section>
-          <p className="mb-2 text-sm font-bold text-[#3f2128]/75">Foto</p>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-sm font-bold text-[#3f2128]/75">Foto</p>
+            <button
+              type="button"
+              onClick={() => setShowGuide(true)}
+              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full px-3 text-sm font-bold text-[#be185d]"
+            >
+              <HelpCircle className="h-4 w-4" />
+              ¿Cómo sacar una buena foto?
+            </button>
+          </div>
           <div className="flex items-center gap-4">
             <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-3xl border border-[#efc6d8] bg-[#fde7f1]">
               {photoUrl ? (
@@ -274,15 +291,10 @@ function ProductEditor({ initial, categories, onClose, onSave, onDelete, saving 
                   Sin foto
                 </span>
               )}
-              {preparingPhoto && (
-                <span className="absolute inset-0 flex items-center justify-center bg-white/70">
-                  <RefreshCw className="h-6 w-6 animate-spin text-[#be185d]" />
-                </span>
-              )}
             </div>
             <div className="flex flex-1 flex-col gap-2">
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
-              <SecondaryButton onClick={() => fileRef.current?.click()} disabled={preparingPhoto}>
+              <SecondaryButton onClick={() => fileRef.current?.click()}>
                 <Camera className="h-5 w-5 text-[#be185d]" />
                 {photoUrl ? 'Cambiar foto' : 'Tomar o elegir foto'}
               </SecondaryButton>
@@ -296,7 +308,7 @@ function ProductEditor({ initial, categories, onClose, onSave, onDelete, saving 
                 </button>
               )}
               <p className="text-xs font-medium leading-snug text-[#3f2128]/50">
-                Puedes guardar sin foto y agregarla después. Se achica sola para que la página cargue rápido.
+                Puedes guardar sin foto y ponerla después. Al elegirla la encuadras: todas quedan cuadradas y del mismo tamaño.
               </p>
             </div>
           </div>
@@ -445,6 +457,19 @@ function ProductEditor({ initial, categories, onClose, onSave, onDelete, saving 
           />
         </section>
 
+        {pendingFile && (
+          <EncuadreFoto
+            file={pendingFile}
+            title="Encuadrar la foto"
+            onCancel={() => setPendingFile(null)}
+            onDone={(photo) => {
+              setDraft(prev => ({ ...prev, newPhoto: photo, removePhoto: false }));
+              setPendingFile(null);
+            }}
+          />
+        )}
+        {showGuide && <GuiaFotos onClose={() => setShowGuide(false)} />}
+
         {!isNew && (
           <button
             type="button"
@@ -470,6 +495,7 @@ export default function AdminCatalog({ session, showNotice }) {
   const [busyId, setBusyId] = useState(null);
   const [toDelete, setToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [view, setView] = useState('productos');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -550,7 +576,7 @@ export default function AdminCatalog({ session, showNotice }) {
     let uploaded = null;
 
     if (draft.newPhoto) {
-      const { data, error } = await uploadProductImage(session, draft.newPhoto.blob, draft.newPhoto.extension);
+      const { data, error } = await uploadProductPhoto(session, draft.newPhoto);
       if (error) {
         showNotice(`No se pudo subir la foto: ${error}`, 'error');
         setSaving(false);
@@ -622,6 +648,28 @@ export default function AdminCatalog({ session, showNotice }) {
 
   return (
     <section>
+      <div className="mb-5 grid grid-cols-2 gap-1 rounded-2xl bg-[#3f2128]/6 p-1">
+        {[
+          { value: 'productos', label: 'Productos' },
+          { value: 'fotos', label: 'Fotos de la página' },
+        ].map(item => (
+          <button
+            key={item.value}
+            type="button"
+            onClick={() => setView(item.value)}
+            className={`min-h-[48px] rounded-xl text-sm font-bold transition ${
+              view === item.value ? 'bg-white text-[#3f2128] shadow' : 'text-[#3f2128]/55'
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'fotos' ? (
+        <AdminPaginaFotos session={session} showNotice={showNotice} />
+      ) : (
+      <>
       <SectionTitle
         title="Tu catálogo"
         subtitle="Lo que agregues aquí aparece en la página. Toca un producto para cambiar su foto, precio o tamaños."
@@ -718,6 +766,8 @@ export default function AdminCatalog({ session, showNotice }) {
           onCancel={() => setToDelete(null)}
           onConfirm={handleDelete}
         />
+      )}
+      </>
       )}
     </section>
   );

@@ -4,6 +4,12 @@ Para que el catálogo se vea profesional no hace falta cámara: basta un celular
 y seguir estos puntos. Después las fotos pasan por el procesador
 (`tools/fotos`), que quita el fondo y las deja todas iguales.
 
+> **Dulce Mae** no necesita el procesador: el admin encuadra cada foto al subirla
+> (cuadrada, mismo tamaño, opción "Dar más luz") y trae esta misma guía adentro,
+> más una sección para sacar fotos desde Instagram y otra con ideas para
+> "Sobre nosotros". El procesador sirve para cargar muchas fotos de una vez o
+> para otros clientes.
+
 ## Texto para mandar por WhatsApp
 
 Listo para copiar y pegar:

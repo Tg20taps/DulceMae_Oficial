@@ -5,9 +5,8 @@ import Header from './components/Header';
 import Hero from './components/Hero';
 import FloatingCart from './components/FloatingCart';
 import Footer from './components/Footer';
-import GlazePreloader from './components/GlazePreloader';
 import SectionWrapper from './components/SectionWrapper';
-import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { THEMES, ThemeProvider, useTheme } from './context/ThemeContext';
 import { CatalogProvider, useCatalog } from './context/CatalogContext';
 import { useCart } from './context/CartContext';
 import { trackEvent } from './utils/analytics';
@@ -15,54 +14,62 @@ import { trackEvent } from './utils/analytics';
 const About = lazy(() => import('./components/About'));
 const Catalog = lazy(() => import('./components/Catalog'));
 const Location = lazy(() => import('./components/Location'));
-const CartModal = lazy(() => import('./components/CartModal'));
+const loadCartModal = () => import('./components/CartModal');
+const CartModal = lazy(loadCartModal);
 const AdminShell = lazy(() => import('./components/admin/AdminShell'));
 
+// Baja la opacidad de un color rgba(): los manchones se pintaban al 72 %.
+function soften(color, factor = 0.72) {
+  return color.replace(/rgba\(([^,]+),([^,]+),([^,]+),\s*([\d.]+)\)/, (_, r, g, b, a) => `rgba(${r},${g},${b},${(Number(a) * factor).toFixed(3)})`);
+}
+
+const THEME_LAYERS = Object.values(THEMES).map(theme => ({
+  id: theme.id,
+  style: {
+    background: `
+      radial-gradient(circle, ${theme.accentLight} 1px, transparent 1px),
+      radial-gradient(circle at 15% 22%, ${soften(theme.blobA)} 0%, transparent 32%),
+      radial-gradient(circle at 86% 28%, ${soften(theme.blobB)} 0%, transparent 34%),
+      radial-gradient(circle at 50% 78%, ${soften(theme.blobD)} 0%, transparent 38%),
+      ${theme.bgBase}
+    `,
+    backgroundSize: '28px 28px, auto, auto, auto, auto',
+  },
+}));
+
+// Fondo de toda la página. Cada tema es una capa fija y el cambio de tema sólo
+// cruza la opacidad: el navegador la resuelve en la GPU, sin repintar la
+// pantalla en cada cuadro como cuando se animaban los degradados.
 function BackgroundCanvas() {
-  const { currentTheme } = useTheme();
+  const { themeId } = useTheme();
+  const [layers, setLayers] = useState({ top: themeId, below: themeId });
+
+  useEffect(() => {
+    setLayers(prev => (prev.top === themeId ? prev : { top: themeId, below: prev.top }));
+  }, [themeId]);
 
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none" aria-hidden="true">
-      <motion.div
-        className="absolute inset-0"
-        animate={{ background: currentTheme.bgBase }}
-        transition={{ duration: 0.85, ease: 'easeInOut' }}
-      />
+      {THEME_LAYERS.map(({ id, style }) => {
+        // La capa nueva aparece encima de la anterior, que se queda visible
+        // debajo hasta que termina el cruce.
+        const visible = id === layers.top || id === layers.below;
+        return (
+          <div
+            key={id}
+            className="absolute inset-0 transition-opacity duration-[850ms] ease-in-out"
+            style={{ ...style, opacity: visible ? 1 : 0, zIndex: id === layers.top ? 2 : visible ? 1 : 0 }}
+          />
+        );
+      })}
 
-      <motion.div
-        className="absolute inset-0"
-        animate={{
-          background: `
-            radial-gradient(circle at 15% 22%, ${currentTheme.blobA} 0%, transparent 32%),
-            radial-gradient(circle at 86% 28%, ${currentTheme.blobB} 0%, transparent 34%),
-            radial-gradient(circle at 50% 78%, ${currentTheme.blobD} 0%, transparent 38%)
-          `,
-        }}
-        transition={{ duration: 0.9, ease: 'easeInOut' }}
-        style={{
-          filter: 'saturate(1.08)',
-          opacity: 0.72,
-        }}
-      />
-
-      <div className="absolute inset-0 dm-pattern-veil">
-        <motion.div
-          className="absolute inset-0 dm-pastry-pattern"
-          animate={{ backgroundColor: currentTheme.accent }}
-          transition={{ duration: 0.85, ease: 'easeInOut' }}
-        />
+      <div className="absolute inset-0 z-[3] dm-pattern-veil">
+        <div className="absolute inset-0 dm-pastry-pattern" style={{ backgroundColor: THEMES.default.accent }} />
       </div>
 
-      <motion.div
-        className="absolute inset-0"
-        animate={{
-          background: `
-            linear-gradient(180deg, rgba(255,255,255,0.34), rgba(255,255,255,0.10) 42%, rgba(255,246,251,0.36)),
-            radial-gradient(circle, ${currentTheme.accentLight} 1px, transparent 1px)
-          `,
-        }}
-        transition={{ duration: 0.9, ease: 'easeInOut' }}
-        style={{ backgroundSize: 'auto, 28px 28px' }}
+      <div
+        className="absolute inset-0 z-[4]"
+        style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.34), rgba(255,255,255,0.10) 42%, rgba(255,246,251,0.36))' }}
       />
     </div>
   );
@@ -154,8 +161,24 @@ class AdminErrorBoundary extends React.Component {
 function AppInterior() {
   const [showToast, setShowToast] = useState(false);
   const { isCartOpen } = useCart();
-  const [preloading, setPreloading] = useState(() => !sessionStorage.getItem('dm_visited'));
+  // El carro se descarga cuando el navegador queda libre y se monta al abrirlo
+  // por primera vez: no compite con la portada al cargar.
+  const [cartMounted, setCartMounted] = useState(false);
   const { setTheme } = useTheme();
+
+  useEffect(() => {
+    if (isCartOpen) setCartMounted(true);
+  }, [isCartOpen]);
+
+  useEffect(() => {
+    const preload = () => loadCartModal().catch(() => {});
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(preload, { timeout: 4000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(preload, 2500);
+    return () => window.clearTimeout(id);
+  }, []);
 
   useEffect(() => {
     const handleItemAdded = () => {
@@ -214,25 +237,18 @@ function AppInterior() {
     };
   }, [setTheme]);
 
-  function handlePreloaderDone() {
-    sessionStorage.setItem('dm_visited', '1');
-    setPreloading(false);
-  }
-
   return (
     <>
-      <AnimatePresence>{preloading && <GlazePreloader onComplete={handlePreloaderDone} />}</AnimatePresence>
-      {!preloading && (
-        <>
-          <BackgroundCanvas />
+      <BackgroundCanvas />
 
       <div className="relative z-[1] flex min-h-screen flex-col overflow-x-hidden">
         <Header />
 
         <main className="flex-grow">
-          <SectionWrapper id="inicio">
+          {/* La portada se ve de inmediato; tiene sus propias entradas. */}
+          <div id="inicio">
             <Hero />
-          </SectionWrapper>
+          </div>
 
           <SectionWrapper id="catalogo" delay={0.05}>
             <Suspense fallback={<SectionFallback />}>
@@ -256,9 +272,11 @@ function AppInterior() {
         <Footer />
       </div>
 
-      <Suspense fallback={null}>
-        <CartModal />
-      </Suspense>
+      {(cartMounted || isCartOpen) && (
+        <Suspense fallback={null}>
+          <CartModal />
+        </Suspense>
+      )}
       <FloatingCart />
 
       <AnimatePresence>
@@ -269,7 +287,7 @@ function AppInterior() {
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: -12, opacity: 0, scale: 0.96 }}
             transition={{ type: 'spring', bounce: 0.35, duration: 0.45 }}
-            className="fixed left-1/2 top-24 z-[240] flex w-[calc(100%-2rem)] max-w-sm items-center gap-3 rounded-2xl border border-white/70 px-4 py-3.5 shadow-[0_18px_60px_rgba(190,24,93,0.20)] backdrop-blur-xl"
+            className="fixed left-1/2 top-24 z-[240] flex w-[calc(100%-2rem)] max-w-sm items-center gap-3 rounded-2xl border border-white/70 px-4 py-3.5 shadow-[0_18px_60px_rgba(190,24,93,0.20)]"
             style={{
               background: 'linear-gradient(135deg, rgba(255,255,255,0.94), rgba(255,241,248,0.88))',
               color: '#3f2128',
@@ -285,8 +303,6 @@ function AppInterior() {
           </motion.div>
         )}
       </AnimatePresence>
-        </>
-      )}
     </>
   );
 }

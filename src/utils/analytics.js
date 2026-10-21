@@ -8,31 +8,13 @@
    
    Solución: extraer trackEvent aquí → App.jsx solo exporta App.
 ══════════════════════════════════════════════════════════════ */
+// Por ahora los eventos sólo se ven en desarrollo (consola). En producción no
+// se envían a ningún lado: conectar aquí un servicio cuando haga falta.
 export function trackEvent(eventName, properties = {}) {
-  const payload = {
+  if (!import.meta.env.DEV) return;
+  console.log('%c[DulceMae Analytics]', 'color:#be185d;font-weight:bold;', {
     event: eventName,
-    timestamp: new Date().toISOString(),
-    session_id: sessionStorage.getItem('dm_session_id') || (() => {
-      const id = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      sessionStorage.setItem('dm_session_id', id);
-      return id;
-    })(),
     page: window.location.pathname,
     ...properties,
-  };
-  if (import.meta.env.DEV) {
-    console.log('%c[DulceMae Analytics]', 'color:#be185d;font-weight:bold;', payload);
-  }
-  /*
-  // ── Activar cuando tengas el webhook listo ──────────────
-  try {
-    await fetch('https://tu-webhook.com/api/events', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-  } catch (err) {
-    console.warn('[Analytics] Error enviando evento:', err);
-  }
-  */
+  });
 }

@@ -155,16 +155,15 @@ export function ThemeProvider({ children }) {
   const currentTheme = THEMES[themeId] ?? THEMES.default;
 
   /* ── Sincroniza body background con el tema activo ──────────
-     Fuerza que toda la página (incluido el espacio bajo el
-     BackgroundCanvas) cambie de color. Transición CSS en body
-     en lugar de JS para no bloquear el hilo principal.
+     Sólo se ve al estirar la página más allá del borde (iPhone);
+     el fondo visible lo pinta BackgroundCanvas. Sin transición:
+     animarlo repintaba la página entera para nada.
   ──────────────────────────────────────────────── */
   useEffect(() => {
     const base = currentTheme.bgBase;
     // Extrae el primer color del gradiente para el body fallback
     const match = base.match(/#[0-9a-f]{6}|rgba?\([^)]+\)/i);
     const fallback = match ? match[0] : '#fff8fb';
-    document.body.style.transition = 'background-color 0.85s ease';
     document.body.style.backgroundColor = fallback;
     return () => { document.body.style.backgroundColor = ''; };
   }, [currentTheme]);

@@ -56,7 +56,7 @@ function CraftMotif() {
       </p>
 
       <motion.div
-        className="relative flex items-center gap-3 rounded-[1.5rem] border border-white/70 bg-white/48 px-4 py-3 shadow-[0_18px_64px_rgba(190,24,93,0.10)] backdrop-blur-xl"
+        className="relative flex items-center gap-3 rounded-[1.5rem] border border-white/70 bg-white/60 px-4 py-3 shadow-[0_18px_64px_rgba(190,24,93,0.10)]"
         initial={{ opacity: 0, y: 18, scale: 0.94 }}
         animate={inView ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 18, scale: 0.94 }}
         transition={{ duration: 0.62, ease: [0.22, 1, 0.36, 1] }}
@@ -66,19 +66,19 @@ function CraftMotif() {
           style={{ background: `radial-gradient(circle at 50% 0%, ${accent}1f, transparent 68%)` }}
         />
         {FOOTER_MOTIFS.map(({ Icon, label }, index) => (
-          <motion.div
+          <div
             key={label}
-            className="relative z-10 flex h-11 w-11 items-center justify-center rounded-xl border border-white/80 bg-white/78"
-            animate={inView ? { y: [0, index === 1 ? -5 : 4, 0] } : undefined}
-            transition={{ duration: 3.2 + index * 0.35, repeat: Infinity, ease: 'easeInOut' }}
+            className="dm-float relative z-10 flex h-11 w-11 items-center justify-center rounded-xl border border-white/80 bg-white/78"
             title={label}
             style={{
               color: index === 1 ? '#be185d' : accent,
               boxShadow: `0 10px 28px ${accent}18`,
+              animationDuration: `${3.2 + index * 0.35}s`,
+              '--dm-float': index === 1 ? '-5px' : '4px',
             }}
           >
             <Icon className="h-5 w-5" strokeWidth={1.65} fill={Icon === Heart ? 'currentColor' : 'none'} />
-          </motion.div>
+          </div>
         ))}
       </motion.div>
     </div>
@@ -151,27 +151,13 @@ export default function Footer() {
   const accent = currentTheme.accent ?? '#be185d';
 
   return (
-    <motion.footer
+    // Velo blanco sobre el fondo de la página, que ya cambia de color con el
+    // tema: no hace falta animar otro degradado ni desenfocar detrás.
+    <footer
       id="footer"
       className="relative mt-8 overflow-hidden border-t border-white/60 py-10"
-      animate={{
-        background: `
-          linear-gradient(180deg, rgba(255,255,255,0.64), rgba(255,255,255,0.34)),
-          radial-gradient(circle at 12% 18%, ${currentTheme.blobA} 0%, transparent 34%),
-          radial-gradient(circle at 86% 72%, ${currentTheme.blobB} 0%, transparent 36%),
-          ${currentTheme.bgBase}
-        `,
-      }}
-      transition={{ duration: 0.85, ease: 'easeInOut' }}
-      style={{ backdropFilter: 'blur(22px)' }}
+      style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.64), rgba(255,255,255,0.34))' }}
     >
-      <div className="absolute inset-0 dm-pattern-veil opacity-45" aria-hidden="true">
-        <motion.div
-          className="absolute inset-0 dm-pastry-pattern"
-          animate={{ backgroundColor: accent }}
-          transition={{ duration: 0.85, ease: 'easeInOut' }}
-        />
-      </div>
       <div className="absolute inset-x-0 top-0 h-px bg-white/80" aria-hidden="true" />
 
       <div className="relative z-10 mx-auto flex max-w-6xl flex-col items-center gap-6 px-5 text-center">
@@ -195,6 +181,6 @@ export default function Footer() {
           <p className="italic">Diseñado para endulzar tus momentos.</p>
         </div>
       </div>
-    </motion.footer>
+    </footer>
   );
 }

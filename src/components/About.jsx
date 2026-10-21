@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Heart, Award, Clock, MapPin, Leaf, HandHeart, Palette } from 'lucide-react';
 import OptimizedImage from './OptimizedImage';
 import { NEGOCIO } from '../config/negocio';
+import { useCatalog } from '../context/CatalogContext';
 
 /* ══════════════════════════════════════════════════════════════
    About.jsx — Fase 3: Storytelling Visual Premium
@@ -10,7 +11,8 @@ import { NEGOCIO } from '../config/negocio';
    MEJORAS:
    • Fondo 100% transparente → blobs globales visibles
    • Tipografía Serif generosa para títulos
-   • Layout visual de 2 columnas: texto + "polaroids" decorativos
+   • Layout visual de 2 columnas: texto + polaroids con las fotos que
+     se suben desde el admin (si no hay fotos, sólo el texto)
    • Stats con iconografía más rica
    • Cita final con diseño editorial
    • Micro-animaciones escalonadas por elemento
@@ -24,29 +26,11 @@ const STATS = [
   { Icon: MapPin, value: NEGOCIO.sector.split(',')[0], label: 'Retiro o delivery', delay: 0.2 },
 ];
 
-// Imágenes polaroid decorativas — float & rotate distintos
-const POLAROIDS = [
-  {
-    src: 'https://images.unsplash.com/photo-1571115177098-24ec42ed204d?auto=format&fit=crop&q=80&w=400',
-    rotate: '-6deg',
-    y: 0,
-    label: 'Cada detalle cuenta ✨',
-    delay: 0.2,
-  },
-  {
-    src: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&q=80&w=400',
-    rotate: '4deg',
-    y: 32,
-    label: 'Hecho con amor 🍓',
-    delay: 0.35,
-  },
-  {
-    src: 'https://images.unsplash.com/photo-1535141192574-5d4897c12636?auto=format&fit=crop&q=80&w=400',
-    rotate: '-3deg',
-    y: 64,
-    label: 'Arte comestible 🌸',
-    delay: 0.5,
-  },
+// Inclinación y desfase de cada polaroid, para que se vean sueltas sobre la mesa.
+const POLAROID_POSE = [
+  { rotate: '-6deg', offset: 'mt-0', delay: 0.2 },
+  { rotate: '4deg', offset: 'mt-5 lg:mt-8', delay: 0.35 },
+  { rotate: '-3deg', offset: 'mt-10 lg:mt-16', delay: 0.5 },
 ];
 
 function StatCard({ stat }) {
@@ -58,10 +42,9 @@ function StatCard({ stat }) {
       viewport={{ once: true }}
       transition={{ delay: 0.5 + delay, type: 'spring', bounce: 0.35 }}
       whileHover={{ y: -4, scale: 1.04 }}
-      className="flex flex-col items-center gap-2 p-5 rounded-3xl relative overflow-hidden"
+      className="flex flex-col items-center gap-2 px-2 py-4 sm:p-5 rounded-3xl relative overflow-hidden"
       style={{
-        background: 'linear-gradient(135deg, rgba(255,255,255,0.72) 0%, rgba(252,231,243,0.60) 100%)',
-        backdropFilter: 'blur(16px)',
+        background: 'linear-gradient(135deg, rgba(255,255,255,0.86) 0%, rgba(252,231,243,0.72) 100%)',
         border: '1px solid rgba(249,168,212,0.35)',
         boxShadow: '0 4px 24px rgba(190,24,93,0.08)',
       }}
@@ -70,56 +53,49 @@ function StatCard({ stat }) {
       <div className="w-10 h-10 rounded-2xl flex items-center justify-center relative z-10" style={{ background: 'linear-gradient(135deg, rgba(249,168,212,0.30), rgba(252,231,243,0.50))', border: '1px solid rgba(249,168,212,0.30)' }}>
         <Icon className="w-5 h-5 text-[#be185d]" strokeWidth={1.75} />
       </div>
-      <span className="font-serif font-bold text-2xl text-[#be185d] relative z-10 leading-none">{value}</span>
+      <span className="whitespace-nowrap font-serif font-bold text-xl sm:text-2xl text-[#be185d] relative z-10 leading-none">{value}</span>
       <span className="text-xs text-[#3f2128]/55 font-semibold text-center leading-tight relative z-10">{label}</span>
     </motion.div>
   );
 }
 
-// Polaroid foto artístico
-function Polaroid({ item, index }) {
+// Las fotos las sube la dueña desde el admin (Catálogo → Fotos de la página).
+function Polaroid({ photo, index }) {
+  const pose = POLAROID_POSE[index % POLAROID_POSE.length];
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 40, rotate: 0 }}
-      whileInView={{ opacity: 1, y: item.y, rotate: item.rotate }}
+    <motion.figure
+      initial={{ opacity: 0, y: 32, rotate: 0 }}
+      whileInView={{ opacity: 1, y: 0, rotate: pose.rotate }}
       viewport={{ once: true }}
-      transition={{ duration: 0.7, delay: item.delay, ease: [0.22, 1, 0.36, 1] }}
-      whileHover={{
-        y: item.y - 8,
-        rotate: '0deg',
-        zIndex: 10,
-        scale: 1.04,
-        transition: { duration: 0.3 },
-      }}
-      className="relative rounded-2xl overflow-hidden cursor-pointer"
-      style={{
-        width: 180,
-        background: 'white',
-        padding: '10px 10px 36px 10px',
-        boxShadow: '0 12px 40px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)',
-        transformOrigin: 'center center',
-        zIndex: index + 1,
-      }}
+      transition={{ duration: 0.7, delay: pose.delay, ease: [0.22, 1, 0.36, 1] }}
+      whileHover={{ rotate: '0deg', scale: 1.04, zIndex: 10, transition: { duration: 0.3 } }}
+      className={`relative w-[31%] max-w-[180px] shrink-0 rounded-2xl bg-white p-1.5 pb-6 shadow-[0_12px_40px_rgba(0,0,0,0.14),0_2px_8px_rgba(0,0,0,0.06)] sm:p-2.5 sm:pb-9 ${pose.offset}`}
+      style={{ zIndex: index + 1 }}
     >
-      <div className="rounded-xl overflow-hidden" style={{ height: 160 }}>
+      <div className="aspect-square overflow-hidden rounded-xl bg-[#fde7f1]">
         <OptimizedImage
-          src={item.src}
-          alt={item.label}
-          sizes="180px"
-          className="w-full h-full object-cover"
-          style={{ filter: 'saturate(1.1) contrast(1.02)' }}
+          src={photo.image}
+          alt={photo.caption || 'Foto de DulceMae'}
+          sizes="(min-width: 1024px) 180px, 31vw"
+          className="h-full w-full object-cover"
         />
       </div>
-      <p className="text-center text-[10px] font-semibold text-[#3f2128]/60 mt-2 font-serif italic leading-tight">
-        {item.label}
-      </p>
-    </motion.div>
+      {photo.caption && (
+        <figcaption className="mt-1.5 text-center font-serif text-[9px] font-semibold italic leading-tight text-[#3f2128]/60 sm:mt-2 sm:text-[11px]">
+          {photo.caption}
+        </figcaption>
+      )}
+    </motion.figure>
   );
 }
 
 const About = () => {
+  const { sitePhotos } = useCatalog();
+  const photos = sitePhotos.slice(0, POLAROID_POSE.length);
+  const hasPhotos = photos.length > 0;
+
   return (
-    <section id="nosotros" className="pt-8 pb-10 px-8 lg:px-14 w-full relative">
+    <section className="pt-8 pb-10 px-5 sm:px-8 lg:px-14 w-full relative">
 
       {/* ── Encabezado centrado ── */}
       <motion.div
@@ -139,7 +115,6 @@ const About = () => {
           style={{
             background: 'rgba(249,168,212,0.25)',
             border: '1px solid rgba(249,168,212,0.50)',
-            backdropFilter: 'blur(8px)',
           }}
         >
           <span className="text-xs font-bold tracking-widest uppercase text-[#be185d]">
@@ -170,7 +145,7 @@ const About = () => {
       </motion.div>
 
       {/* ── Layout principal 2 columnas ── */}
-      <div className="grid lg:grid-cols-2 gap-14 lg:gap-20 items-center mb-14">
+      <div className={`mb-14 grid grid-cols-1 items-center gap-10 lg:gap-20 ${hasPhotos ? 'lg:grid-cols-2' : 'mx-auto max-w-3xl'}`}>
 
         {/* Columna texto — storytelling */}
         <motion.div
@@ -184,8 +159,7 @@ const About = () => {
           <div
             className="rounded-[2.5rem] p-8 md:p-10 relative overflow-hidden"
             style={{
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.65) 0%, rgba(252,231,243,0.50) 100%)',
-              backdropFilter: 'blur(20px)',
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.80) 0%, rgba(252,231,243,0.62) 100%)',
               border: '1px solid rgba(249,168,212,0.30)',
               boxShadow: '0 8px 40px rgba(190,24,93,0.07)',
             }}
@@ -225,8 +199,7 @@ const About = () => {
           <div
             className="rounded-[2.5rem] p-8 md:p-10 relative overflow-hidden"
             style={{
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.55) 0%, rgba(255,237,213,0.35) 100%)',
-              backdropFilter: 'blur(20px)',
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.74) 0%, rgba(255,237,213,0.48) 100%)',
               border: '1px solid rgba(249,168,212,0.20)',
             }}
           >
@@ -255,53 +228,28 @@ const About = () => {
           </div>
 
           {/* Stats row */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
             {STATS.map((stat, i) => (
               <StatCard key={i} stat={stat} index={i} />
             ))}
           </div>
         </motion.div>
 
-        {/* Columna polaroids — galería artística escalonada */}
-        <motion.div
-          initial={{ opacity: 0, x: 32 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, margin: '0px 0px 20% 0px' }}
-          transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
-          className="relative hidden lg:flex items-start justify-center"
-          style={{ minHeight: 440 }}
-        >
-          {/* Fondo circular decorativo */}
-          <div
-            className="absolute inset-0 rounded-full pointer-events-none"
-            style={{
-              background: 'radial-gradient(circle at center, rgba(249,168,212,0.15) 0%, transparent 70%)',
-              transform: 'scale(1.2)',
-            }}
-          />
+        {/* Columna polaroids: sólo si hay fotos reales. */}
+        {hasPhotos && (
+          <div className="relative flex flex-col items-center gap-6 lg:min-h-[440px] lg:justify-center">
+            <div className="relative flex w-full items-start justify-center gap-2 sm:gap-4">
+              {photos.map((photo, i) => (
+                <Polaroid key={photo.slot} photo={photo} index={i} />
+              ))}
+            </div>
 
-          {/* Polaroids apilados */}
-          <div className="relative flex gap-4 items-start justify-center pt-8">
-            {POLAROIDS.map((item, i) => (
-              <Polaroid key={i} item={item} index={i} />
-            ))}
+            <span className="flex items-center gap-2 rounded-2xl bg-gradient-to-br from-[#be185d] to-[#e11d72] px-4 py-2.5 shadow-[0_8px_28px_rgba(190,24,93,0.35)] lg:absolute lg:bottom-4 lg:right-4">
+              <Award className="h-4 w-4 text-white" />
+              <span className="text-xs font-bold tracking-wide text-white">Calidad Premium</span>
+            </span>
           </div>
-
-          {/* Award badge flotante */}
-          <motion.div
-            animate={{ y: [0, -8, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-            className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-xl"
-            style={{
-              background: 'linear-gradient(135deg, #be185d, #e11d72)',
-              boxShadow: '0 8px 28px rgba(190,24,93,0.35)',
-            }}
-          >
-            <Award className="w-4 h-4 text-white" />
-            <span className="text-white text-xs font-bold tracking-wide">Calidad Premium</span>
-          </motion.div>
-
-        </motion.div>
+        )}
       </div>
 
       {/* ── Valores en fila — mobile-first ── */}
@@ -344,8 +292,7 @@ const About = () => {
             whileHover={{ y: -6, transition: { duration: 0.25 } }}
             className="flex flex-col items-center text-center gap-5 p-8 rounded-3xl relative overflow-hidden"
             style={{
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.60) 0%, rgba(252,231,243,0.45) 100%)',
-              backdropFilter: 'blur(16px)',
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.80) 0%, rgba(252,231,243,0.58) 100%)',
               border: '1px solid rgba(249,168,212,0.25)',
               boxShadow: '0 4px 20px rgba(190,24,93,0.06)',
             }}

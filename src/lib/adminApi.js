@@ -5,6 +5,7 @@ import {
   isSupabaseConfigured,
   supabaseAnonKey,
 } from './supabaseConfig';
+import { rutaMiniatura } from './imagenes';
 
 const ADMIN_SESSION_KEY = 'dulcemae_admin_session_v1';
 const SESSION_REFRESH_MARGIN_SECONDS = 60;
@@ -264,7 +265,22 @@ function storageObjectUrl(path) {
   return buildSupabaseStorageUrl(`object/${path}`);
 }
 
-export async function uploadProductImage(session, blob, extension) {
+async function putObject(activeSession, path, blob, { upsert = false, cacheSeconds = 31536000 } = {}) {
+  const response = await fetch(storageObjectUrl(`${PRODUCT_BUCKET}/${path}`), {
+    method: 'POST',
+    headers: {
+      ...authHeaders(activeSession),
+      'Content-Type': blob.type,
+      'cache-control': `max-age=${cacheSeconds}`,
+      ...(upsert ? { 'x-upsert': 'true' } : {}),
+    },
+    body: blob,
+  });
+  if (!response.ok) throw new Error(await parseResponseError(response));
+}
+
+// Sube la foto y su miniatura (para las tarjetas del catálogo) con nombre único.
+export async function uploadProductPhoto(session, { blob, miniaturaBlob, extension }) {
   const activeSession = await getActiveSession(session);
   if (!activeSession) return { data: null, error: SESSION_EXPIRED };
 
@@ -276,16 +292,8 @@ export async function uploadProductImage(session, blob, extension) {
   const path = `${folder}/${name}.${extension}`;
 
   try {
-    const response = await fetch(storageObjectUrl(`${PRODUCT_BUCKET}/${path}`), {
-      method: 'POST',
-      headers: {
-        ...authHeaders(activeSession),
-        'Content-Type': blob.type,
-        'cache-control': 'max-age=31536000',
-      },
-      body: blob,
-    });
-    if (!response.ok) return { data: null, error: friendlyError(await parseResponseError(response)) };
+    await putObject(activeSession, path, blob);
+    if (miniaturaBlob) await putObject(activeSession, rutaMiniatura(path), miniaturaBlob);
   } catch (error) {
     return { data: null, error: friendlyError(error.message) };
   }
@@ -296,13 +304,34 @@ export async function uploadProductImage(session, blob, extension) {
   };
 }
 
+// La foto para compartir el link vive en una ruta fija, porque index.html la
+// nombra directamente (WhatsApp no ejecuta JavaScript al armar la vista previa).
+export const SHARE_PHOTO_PATH = 'sitio/compartir.jpg';
+
+export function sharePhotoUrl() {
+  return storageObjectUrl(`public/${PRODUCT_BUCKET}/${SHARE_PHOTO_PATH}`);
+}
+
+export async function uploadSharePhoto(session, blob) {
+  const activeSession = await getActiveSession(session);
+  if (!activeSession) return { error: SESSION_EXPIRED };
+  try {
+    await putObject(activeSession, SHARE_PHOTO_PATH, blob, { upsert: true, cacheSeconds: 300 });
+    return { error: null };
+  } catch (error) {
+    return { error: friendlyError(error.message) };
+  }
+}
+
 // Borrar la foto vieja es limpieza: si falla, el producto igual queda bien.
 export async function deleteProductImage(session, path) {
   if (!path) return;
   const activeSession = await getActiveSession(session);
   if (!activeSession) return;
-  await fetch(storageObjectUrl(`${PRODUCT_BUCKET}/${path}`), {
-    method: 'DELETE',
-    headers: authHeaders(activeSession),
-  }).catch(() => {});
+  for (const target of [path, rutaMiniatura(path)]) {
+    await fetch(storageObjectUrl(`${PRODUCT_BUCKET}/${target}`), {
+      method: 'DELETE',
+      headers: authHeaders(activeSession),
+    }).catch(() => {});
+  }
 }

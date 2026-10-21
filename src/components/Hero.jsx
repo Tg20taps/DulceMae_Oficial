@@ -8,9 +8,10 @@ import { NEGOCIO } from '../config/negocio';
 
 /* ══════════════════════════════════════════════════════════════
    SLIDES — Carrusel de la portada
-   Muestra los productos marcados "Destacado" en el admin que tengan foto.
-   Mientras no haya al menos dos, usa estas imágenes de referencia sin
-   precios (los precios reales están en el catálogo).
+   Muestra los productos marcados "Destacado" en el admin que tengan foto;
+   si hay menos de dos, cualquier producto con foto. Mientras no haya al
+   menos dos fotos, usa estas imágenes de referencia sin precios (los
+   precios reales están en el catálogo).
 ══════════════════════════════════════════════════════════════ */
 const SLIDE_COLORS = [
   { accent: '#ff69b4', accentDark: '#be185d' },
@@ -30,10 +31,12 @@ function useHeroSlides() {
   const { products } = useCatalog();
 
   return useMemo(() => {
-    const featured = products.filter(product => product.featured && product.image).slice(0, 4);
-    if (featured.length < 2) return FALLBACK_SLIDES;
+    const withPhoto = products.filter(product => product.image);
+    const featured = withPhoto.filter(product => product.featured);
+    const chosen = (featured.length >= 2 ? featured : withPhoto).slice(0, 4);
+    if (chosen.length < 2) return FALLBACK_SLIDES;
 
-    return featured.map((product, i) => ({
+    return chosen.map((product, i) => ({
       ...SLIDE_COLORS[i],
       id: product.id,
       catalogId: product.id,
@@ -142,7 +145,6 @@ function CarouselCard({ slide, isActive, onActivate, onProductClick }) {
       animate={{
         scale: isActive ? 1 : 0.86,
         opacity: isActive ? 1 : 0.42,
-        filter: isActive ? 'brightness(1)' : 'brightness(0.85) saturate(0.7)',
       }}
       whileTap={{ scale: isActive ? 0.97 : 0.88 }}
       transition={SPRING}
@@ -163,6 +165,10 @@ function CarouselCard({ slide, isActive, onActivate, onProductClick }) {
       <div
         className="absolute inset-0 rounded-[1.5rem]"
         style={{ background: 'linear-gradient(170deg, transparent 35%, rgba(0,0,0,0.52) 100%)' }}
+      />
+      {/* Las tarjetas de atrás, más apagadas */}
+      <div
+        className={`absolute inset-0 rounded-[1.5rem] bg-[#3f2128] transition-opacity duration-300 ${isActive ? 'opacity-0' : 'opacity-20'}`}
       />
 
       {/* Glow ring */}
@@ -359,18 +365,17 @@ export default function Hero() {
   return (
     <section
       ref={sectionRef}
-      id="inicio"
       className="relative flex min-h-[calc(100vh-2rem)] items-center overflow-visible pb-12 pt-24"
       onMouseMove={handleSectionMouseMove}
       onMouseLeave={handleSectionMouseLeave}
     >
       <div className="relative z-10 mx-auto grid w-full max-w-6xl items-center gap-8 px-5 md:grid-cols-2 lg:gap-14 lg:px-8">
 
-        {/* ── TEXTO — capa frontal del diorama ─────────────────── */}
+        {/* ── TEXTO — capa frontal del diorama ─────────────────────
+            Título y descripción se ven desde el primer cuadro (sin
+            entrar desde transparente): es lo primero que lee el
+            cliente y lo que mide Google como carga principal. ── */}
         <motion.div
-          initial={{ opacity: 0, x: -40 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
           className="dm-gpu flex flex-col gap-5 md:gap-6"
           style={{ x: textX, y: textY }}
         >
@@ -395,10 +400,11 @@ export default function Hero() {
           {/* Headline grande y audaz */}
           <div className="leading-[0.9] flex flex-col gap-2">
             <motion.h1
-              initial={{ opacity: 0, y: 26 }}
-              animate={{ opacity: 1, y: 0, color: accentDark }}
-              transition={{ delay: 0.26, duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+              initial={false}
+              animate={{ color: accentDark }}
+              transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
               className="font-serif text-5xl font-bold sm:text-6xl lg:text-7xl xl:text-8xl"
+              style={{ color: accentDark }}
             >
               Momentos
             </motion.h1>
@@ -415,15 +421,10 @@ export default function Hero() {
           </div>
 
           {/* Descripción */}
-          <motion.p
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.44, duration: 0.62 }}
-            className="max-w-sm text-sm font-medium leading-relaxed text-[#3f2128]/60 md:text-base lg:text-lg"
-          >
+          <p className="max-w-sm text-sm font-medium leading-relaxed text-[#3f2128]/60 md:text-base lg:text-lg">
             Descubre nuestra selección de pasteles artesanales, creados con amor
             y los mejores ingredientes para tus celebraciones.
-          </motion.p>
+          </p>
 
           {/* CTAs */}
           <motion.div

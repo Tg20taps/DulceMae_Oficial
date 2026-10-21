@@ -1,6 +1,22 @@
 import React, { forwardRef } from 'react';
+import { esFotoPropia, LADO_FOTO, LADO_MINIATURA, urlMiniatura } from '../lib/imagenes';
 
 const WIDTHS = [360, 520, 760, 1040, 1400];
+
+// Las fotos subidas desde el admin vienen en dos tamaños: el celular baja la
+// chica y el computador la grande.
+function sources(src) {
+  if (esFotoPropia(src)) {
+    return {
+      srcSet: `${urlMiniatura(src)} ${LADO_MINIATURA}w, ${src} ${LADO_FOTO}w`,
+      fallback: src,
+    };
+  }
+  return {
+    srcSet: WIDTHS.map(width => `${imageUrl(src, width)} ${width}w`).join(', '),
+    fallback: imageUrl(src, 760),
+  };
+}
 
 function imageUrl(src, width) {
   try {
@@ -31,8 +47,7 @@ const OptimizedImage = forwardRef(function OptimizedImage(
   },
   ref
 ) {
-  const srcSet = WIDTHS.map(width => `${imageUrl(src, width)} ${width}w`).join(', ');
-  const fallback = imageUrl(src, 760);
+  const { srcSet, fallback } = sources(src);
   const priority = fetchpriority ?? fetchPriority;
 
   return (

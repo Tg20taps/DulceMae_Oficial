@@ -73,12 +73,7 @@ function LiveStatusBadge() {
         className="inline-flex items-center gap-1.5 rounded-full px-3 py-1"
         style={{ background: `${dotColor}18`, border: `1px solid ${dotColor}40` }}
       >
-        <motion.span
-          animate={{ scale: [1, 1.45, 1], opacity: [1, 0.45, 1] }}
-          transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-          className="h-1.5 w-1.5 rounded-full"
-          style={{ background: dotColor }}
-        />
+        <span className="dm-blink h-1.5 w-1.5 rounded-full" style={{ background: dotColor }} />
         <span className="text-[0.7rem] font-bold" style={{ color }}>
           {label}
         </span>
@@ -150,15 +145,12 @@ function MapButton({ url }) {
 
 function DulceMaeMapPin({ hovered }) {
   return (
-    <motion.div
-      animate={{ y: hovered ? -8 : [0, -6, 0], scale: hovered ? 1.05 : 1 }}
-      transition={
-        hovered
-          ? { type: 'spring', stiffness: 340, damping: 20 }
-          : { duration: 3.2, repeat: Infinity, ease: 'easeInOut' }
-      }
-      className="relative flex flex-col items-center"
-    >
+    <div className={hovered ? '' : 'dm-float'}>
+      <motion.div
+        animate={{ y: hovered ? -8 : 0, scale: hovered ? 1.05 : 1 }}
+        transition={{ type: 'spring', stiffness: 340, damping: 20 }}
+        className="relative flex flex-col items-center"
+      >
       <motion.div
         animate={{
           boxShadow: hovered
@@ -177,13 +169,12 @@ function DulceMaeMapPin({ hovered }) {
         className="-mt-2 h-5 w-5 rotate-45 rounded-br-[6px] border-b border-r border-white/80 bg-[#e11d72]"
         style={{ boxShadow: '8px 8px 24px rgba(190,24,93,0.20)' }}
       />
-      <motion.div
-        animate={{ scale: hovered ? 1.18 : [1, 1.08, 1], opacity: hovered ? 0.24 : [0.18, 0.28, 0.18] }}
-        transition={{ duration: 2.4, repeat: hovered ? 0 : Infinity, ease: 'easeInOut' }}
-        className="mt-1 h-3 w-16 rounded-full bg-[#be185d]"
+      <div
+        className={`mt-1 h-3 w-16 rounded-full bg-[#be185d] ${hovered ? 'scale-[1.18] opacity-25' : 'dm-shadow'}`}
         style={{ filter: 'blur(10px)' }}
       />
-    </motion.div>
+      </motion.div>
+    </div>
   );
 }
 
@@ -212,12 +203,7 @@ function MapPreview() {
         src={STORE.embedUrl}
         loading="lazy"
         referrerPolicy="no-referrer-when-downgrade"
-        className="absolute inset-0 h-full w-full border-0"
-        style={{
-          pointerEvents: 'none',
-          filter: hovered ? 'saturate(1.02) contrast(1.02)' : 'saturate(0.96) contrast(0.99)',
-          transition: 'filter 0.4s ease',
-        }}
+        className="pointer-events-none absolute inset-0 h-full w-full border-0"
       />
 
       <div
@@ -257,7 +243,7 @@ function MapPreview() {
 
 export default function Location() {
   return (
-    <section id="ubicacion" className="px-5 py-16">
+    <section className="px-5 py-16">
       <div className="mx-auto max-w-4xl">
         <motion.div
           initial={{ opacity: 0, y: 24 }}
@@ -290,7 +276,7 @@ export default function Location() {
             <MapPreview />
           </div>
 
-          <div className="order-1 flex flex-col gap-3.5 rounded-[1.6rem] border border-white/70 bg-white/60 p-5 shadow-xl backdrop-blur-xl md:order-2">
+          <div className="order-1 flex flex-col gap-3.5 rounded-[1.6rem] border border-white/70 bg-white/80 p-5 shadow-xl md:order-2">
             <div className="border-b border-pink-100/60 pb-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs font-bold uppercase text-pink-400">Nuestra tienda</p>

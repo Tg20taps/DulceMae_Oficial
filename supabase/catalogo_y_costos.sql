@@ -10,6 +10,7 @@
 -- 3. Ingredientes, recetas y lista de compras se guardan en la base (antes quedaban
 --    sólo en el navegador).
 -- 4. Bucket público "productos" para las fotos; sólo el admin sube y borra.
+-- 5. Fotos de la página (Sobre nosotros), editables desde el admin.
 
 create extension if not exists pgcrypto;
 
@@ -158,6 +159,28 @@ insert into public.app_settings (key, value) values
   ('costos', '{"valor_hora_clp": 3500, "ganancia_pct": 30}'::jsonb)
 on conflict (key) do nothing;
 
+-- ── Fotos de la página ──────────────────────────────────────────────────
+-- Lugares fijos de la página que muestran fotos propias (no de productos).
+
+create table if not exists public.site_photos (
+  slot text primary key check (slot ~ '^[a-z0-9_]{2,40}$'),
+  image_url text check (image_url is null or char_length(image_url) <= 600),
+  image_path text check (image_path is null or char_length(image_path) <= 300),
+  caption text check (caption is null or char_length(caption) <= 60),
+  updated_at timestamptz not null default now()
+);
+
+insert into public.site_photos (slot, caption) values
+  ('nosotros_1', 'Cada detalle cuenta'),
+  ('nosotros_2', 'Hecho con amor'),
+  ('nosotros_3', 'Para tus celebraciones')
+on conflict (slot) do nothing;
+
+drop trigger if exists site_photos_touch_updated_at on public.site_photos;
+create trigger site_photos_touch_updated_at
+before update on public.site_photos
+for each row execute function public.touch_updated_at();
+
 -- ── Permisos ────────────────────────────────────────────────────────────
 
 alter table public.products enable row level security;
@@ -167,10 +190,11 @@ alter table public.ingredients enable row level security;
 alter table public.recipes enable row level security;
 alter table public.recipe_items enable row level security;
 alter table public.app_settings enable row level security;
+alter table public.site_photos enable row level security;
 
 grant usage on schema public to anon, authenticated;
-grant select on public.products, public.product_options, public.delivery_zones to anon, authenticated;
-grant insert, update, delete on public.products, public.product_options, public.delivery_zones to authenticated;
+grant select on public.products, public.product_options, public.delivery_zones, public.site_photos to anon, authenticated;
+grant insert, update, delete on public.products, public.product_options, public.delivery_zones, public.site_photos to authenticated;
 grant select, insert, update, delete on public.ingredients, public.recipes, public.recipe_items, public.app_settings to authenticated;
 revoke all on public.ingredients, public.recipes, public.recipe_items, public.app_settings from anon;
 
@@ -206,6 +230,17 @@ using (is_active or public.is_dulcemae_admin());
 
 drop policy if exists "Admin edita zonas" on public.delivery_zones;
 create policy "Admin edita zonas" on public.delivery_zones
+for all to authenticated
+using (public.is_dulcemae_admin())
+with check (public.is_dulcemae_admin());
+
+drop policy if exists "Fotos de la pagina visibles para todos" on public.site_photos;
+create policy "Fotos de la pagina visibles para todos" on public.site_photos
+for select to anon, authenticated
+using (true);
+
+drop policy if exists "Admin edita fotos de la pagina" on public.site_photos;
+create policy "Admin edita fotos de la pagina" on public.site_photos
 for all to authenticated
 using (public.is_dulcemae_admin())
 with check (public.is_dulcemae_admin());
@@ -626,6 +661,13 @@ using (bucket_id = 'productos' and public.is_dulcemae_admin());
 drop policy if exists "Admin sube fotos de productos" on storage.objects;
 create policy "Admin sube fotos de productos" on storage.objects
 for insert to authenticated
+with check (bucket_id = 'productos' and public.is_dulcemae_admin());
+
+-- Reemplazar (upsert) se usa para la foto fija de "compartir el link".
+drop policy if exists "Admin reemplaza fotos de productos" on storage.objects;
+create policy "Admin reemplaza fotos de productos" on storage.objects
+for update to authenticated
+using (bucket_id = 'productos' and public.is_dulcemae_admin())
 with check (bucket_id = 'productos' and public.is_dulcemae_admin());
 
 drop policy if exists "Admin borra fotos de productos" on storage.objects;

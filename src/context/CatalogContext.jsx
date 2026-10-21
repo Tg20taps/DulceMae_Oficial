@@ -5,16 +5,16 @@ const CatalogContext = createContext(null);
 
 export const useCatalog = () => useContext(CatalogContext);
 
-// Carga una sola vez productos y zonas de delivery; los comparten portada,
-// catálogo y carro.
+// Carga una sola vez productos, zonas de delivery y fotos de la página; los
+// comparten portada, catálogo, "Sobre nosotros" y carro.
 export function CatalogProvider({ children }) {
-  const [state, setState] = useState({ status: 'loading', products: [], zones: [] });
+  const [state, setState] = useState({ status: 'loading', products: [], zones: [], sitePhotos: [] });
 
   const load = useCallback(async () => {
     setState(prev => ({ ...prev, status: 'loading' }));
     try {
-      const { products, zones, configured } = await fetchCatalog();
-      setState({ status: configured ? 'ready' : 'unconfigured', products, zones });
+      const { products, zones, sitePhotos, configured } = await fetchCatalog();
+      setState({ status: configured ? 'ready' : 'unconfigured', products, zones, sitePhotos });
     } catch {
       setState(prev => ({ ...prev, status: 'error' }));
     }

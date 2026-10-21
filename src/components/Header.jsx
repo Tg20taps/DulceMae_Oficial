@@ -95,7 +95,7 @@ export default function Header() {
             boxShadow: scrolled ? `0 18px 48px ${accent}24` : `0 8px 28px ${accent}10`,
             borderColor: scrolled ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.78)',
           }}
-          className="pointer-events-auto relative mx-4 flex w-full max-w-5xl items-center justify-between gap-3 rounded-[1.15rem] border px-4 py-2.5 backdrop-blur-2xl md:px-5"
+          className="pointer-events-auto relative mx-4 flex w-full max-w-5xl items-center justify-between gap-3 rounded-[1.15rem] border px-4 py-2.5 backdrop-blur-md md:px-5"
         >
           <div
             className="pointer-events-none absolute inset-0 rounded-[1.35rem]"
@@ -169,15 +169,11 @@ export default function Header() {
         {menuOpen && (
           <motion.div
             className="fixed inset-0 z-[950] flex flex-col"
-            initial={{ opacity: 0, scale: 1.03, filter: 'blur(10px)' }}
-            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, scale: 1.02, filter: 'blur(8px)' }}
-            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            style={{
-              background: 'rgba(255,242,250,0.92)',
-              backdropFilter: 'blur(36px) saturate(190%)',
-              WebkitBackdropFilter: 'blur(36px) saturate(190%)',
-            }}
+            initial={{ opacity: 0, scale: 1.03 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.02 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            style={{ background: 'rgba(255,242,250,0.98)' }}
           >
             <div className="flex items-center justify-between border-b border-pink-200/50 px-6 pb-5 pt-6">
               <span className="font-serif text-2xl font-bold text-[#3f2128]">

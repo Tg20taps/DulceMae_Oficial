@@ -27,7 +27,7 @@ function ProductCard({ product, index, onOpen, onAdd, highlighted, onHoverStart,
       onMouseEnter={onHoverStart}
       onMouseLeave={onHoverEnd}
       style={{ scrollMarginTop: 112 }}
-      className={`group flex flex-col overflow-hidden rounded-3xl border bg-white/85 shadow-[0_6px_24px_rgba(190,24,93,0.08)] backdrop-blur transition-shadow hover:shadow-[0_18px_48px_rgba(190,24,93,0.16)] ${
+      className={`group flex flex-col overflow-hidden rounded-3xl border bg-white/90 shadow-[0_6px_24px_rgba(190,24,93,0.08)] transition-shadow hover:shadow-[0_18px_48px_rgba(190,24,93,0.16)] ${
         highlighted ? 'border-[#be185d] ring-4 ring-[#be185d]/15' : 'border-white/60'
       }`}
     >

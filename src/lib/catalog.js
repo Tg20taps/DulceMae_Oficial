@@ -54,7 +54,7 @@ async function getJson(path) {
 
 export async function fetchCatalog() {
   if (!isSupabaseConfigured) {
-    return { products: [], zones: [], configured: false };
+    return { products: [], zones: [], sitePhotos: [], configured: false };
   }
 
   const productParams = new URLSearchParams({
@@ -68,14 +68,17 @@ export async function fetchCatalog() {
     order: 'sort_order.asc',
   });
 
-  const [products, zones] = await Promise.all([
+  const [products, zones, sitePhotos] = await Promise.all([
     getJson(`products?${productParams}`),
     getJson(`delivery_zones?${zoneParams}`),
+    // Las fotos de "Sobre nosotros" son decorativas: si fallan, la página sigue.
+    getJson('site_photos?select=slot,image_url,caption&image_url=not.is.null&order=slot.asc').catch(() => []),
   ]);
 
   return {
     products: products.map(normalizeProduct),
     zones: zones.map(normalizeZone),
+    sitePhotos: sitePhotos.map(row => ({ slot: row.slot, image: row.image_url, caption: row.caption ?? '' })),
     configured: true,
   };
 }
