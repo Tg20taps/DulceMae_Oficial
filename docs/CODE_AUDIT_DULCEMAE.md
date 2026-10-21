@@ -1,5 +1,7 @@
 # Auditoría técnica DulceMae
 
+> **Actualización 2026-10-21:** el checkout ya no inserta en `orders` con `return=minimal`: llama a `create_order()`, que calcula los montos en la base. El catálogo, los costos y la lista de compras viven en Supabase. El estado vigente y los pasos para publicar están en `docs/LANZAMIENTO.md`.
+
 Fecha: 2026-05-08
 
 Objetivo: dejar una base limpia para seguir construyendo sin romper el regalo principal: web pública bonita, checkout confiable, WhatsApp, pedidos en Supabase y admin simple.

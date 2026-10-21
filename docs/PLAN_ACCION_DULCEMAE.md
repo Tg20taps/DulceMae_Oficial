@@ -1,5 +1,7 @@
 # Plan de accion DulceMae
 
+> **Actualización 2026-10-21:** el checkout ya no inserta en `orders` con `return=minimal`: llama a `create_order()`, que calcula los montos en la base. El catálogo, los costos y la lista de compras viven en Supabase. El estado vigente y los pasos para publicar están en `docs/LANZAMIENTO.md`.
+
 Objetivo: convertir la pagina actual en un sistema simple, bonito y util para que una persona que trabaja sola pueda vender por WhatsApp, controlar pedidos, calcular costos y dejar datos limpios para Excel y analisis futuro.
 
 ## Estado actual del proyecto

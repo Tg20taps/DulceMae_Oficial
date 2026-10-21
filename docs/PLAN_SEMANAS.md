@@ -24,12 +24,15 @@ carpeta con fotos procesadas sin avisos.
 
 ### Semana 1 · 26 de octubre al 1 de noviembre — Dulce Mae creíble
 
+> Adelantado el 21 de octubre: toda la programación de las semanas 1 y 2 quedó hecha
+> (ver `docs/LANZAMIENTO.md`). Lo que falta es contenido: productos, precios y fotos.
+
 - [ ] Catálogo real con fotos propias (aún escrito en el código está bien).
-- [ ] Quitar cifras sin respaldo; poner las reales.
-- [ ] Un archivo de configuración del negocio: horario, zonas, WhatsApp. Se
+- [x] Quitar cifras sin respaldo; poner las reales.
+- [x] Un archivo de configuración del negocio: horario, zonas, WhatsApp. Se
       acaban las contradicciones de horario y precio.
-- [ ] Catálogo justo después de la portada; grilla de dos columnas en celular.
-- [ ] Endurecer la política de inserción de pedidos en Supabase.
+- [x] Catálogo justo después de la portada; grilla de dos columnas en celular.
+- [x] Endurecer la política de inserción de pedidos en Supabase.
 - [ ] Título, descripción e imagen para la vista previa al compartir.
 - [ ] Tres pedidos de prueba de familia o amigos, desde celulares distintos.
 
@@ -38,10 +41,10 @@ mamá le llega el pedido completo sin tener que preguntar nada.
 
 ### Semana 2 · 2 al 8 de noviembre — catálogo editable y lanzamiento
 
-- [ ] Productos en Supabase, editables desde el admin: nombre, foto, precio,
+- [x] Productos en Supabase, editables desde el admin: nombre, foto, precio,
       tamaños, disponible o agotado.
-- [ ] Total del pedido recalculado en la base con los precios de la tabla.
-- [ ] Costos y stock fuera del navegador (a Supabase) o escondidos.
+- [x] Total del pedido recalculado en la base con los precios de la tabla.
+- [x] Costos y stock fuera del navegador (a Supabase) o escondidos.
 - [ ] Hosting comercial (Cloudflare Pages o Netlify), dominio `.cl` y perfil
       de empresa en Google.
 - [ ] Productos de Navidad cargados y "pedidos de Navidad abiertos" publicado

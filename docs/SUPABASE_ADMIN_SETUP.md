@@ -30,6 +30,20 @@ El mismo script tambien agrega los campos de cancelacion:
 
 Con eso el admin puede marcar pedidos como cancelados sin borrarlos y conservar motivos utiles para analisis.
 
+### Catálogo, costos y pedidos calculados en la base
+
+Después de `orders.sql`, correr completo `supabase/catalogo_y_costos.sql` (Run sobre
+todo el script; se puede correr más de una vez). Crea:
+
+- `products`, `product_options` (tamaños) y `delivery_zones`, que lee la página.
+- `ingredients`, `recipes`, `recipe_items` y `app_settings`, que usa la calculadora de costos.
+- El bucket público `productos` para las fotos del catálogo.
+- `create_order()`: el checkout ya no inserta directo en `orders`; esta función toma
+  precios y costo de delivery de la base y guarda el pedido.
+
+Los 6 productos de ejemplo quedan **ocultos**: la página muestra "Muy pronto" hasta que
+se muestre alguno desde `/admin` → Catálogo.
+
 ## 3. Usuario Admin
 
 En Supabase Auth, crea un usuario con el mismo correo usado en:
@@ -47,7 +61,7 @@ claudiamancilla1978@gmail.com
 
 - El checkout abre WhatsApp siempre.
 - Si Supabase esta configurado, guarda el pedido en `orders` usando la API REST de Supabase antes de abrir el mensaje final.
-- La insercion publica usa `Prefer: return=minimal`. Esto es intencional: el cliente anonimo puede crear pedidos, pero no debe leer filas protegidas por RLS.
+- El checkout llama a `create_order()`, que calcula montos con los precios de la base. El cliente anónimo no puede insertar ni leer `orders` directamente.
 - Si Supabase falla o falta la tabla, el cliente no queda bloqueado.
 - `/admin` lee `orders` solo para usuarios autenticados autorizados por RLS.
 - Cancelar un pedido cambia su estado a `cancelled`, guarda motivo y no lo cuenta en ventas visibles.
